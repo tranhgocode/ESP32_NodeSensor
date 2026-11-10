@@ -35,3 +35,8 @@ venv/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# User-specific files
+*.sublime-workspace
+my_plan.md
+AGENTS.md
