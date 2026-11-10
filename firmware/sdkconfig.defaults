@@ -1,0 +1,2 @@
+# Keep the ESP-IDF image header consistent with platformio.ini.
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
