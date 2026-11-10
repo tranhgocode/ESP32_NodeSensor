@@ -1,2 +1,4 @@
 dependencies:
-  espressif/led_strip: "^3.0.0"
+  idf: "==6.1.0"
+  esp-idf-lib/dht: "==1.2.0"
+  dernasherbrezon/sx127x: "==5.0.1"
