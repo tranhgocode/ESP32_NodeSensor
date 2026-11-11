@@ -10,7 +10,7 @@
  */
 node_result_t status_led_init(void);
 /**
- * Bật/tắt LED một màu, giữ chữ ký ba kênh theo hợp đồng Task 6.
+ * Bật/tắt LED một màu, giữ chữ ký ba kênh của giao diện indicator.
  * Bất kỳ kênh nào khác 0 đều bật LED, cả ba bằng 0 thì tắt LED.
  * LED này không hỗ trợ màu RGB hoặc điều chỉnh độ sáng bằng PWM.
  *

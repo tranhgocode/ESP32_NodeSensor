@@ -4,9 +4,9 @@
 #include <stdint.h>
 
 /*
- * Các mặc định để tạo node_config_t. Task 6 dùng sleep_ms cho Light-sleep
- * thật trước mỗi lần nháy LED, chưa cần nối radio, không đo hoặc phát.
- * Chu kỳ cảm biến và chờ ACK đầy đủ sẽ được tích hợp trong Task 7–8.
+ * Các mặc định để tạo node_config_t, dùng chung cho bộ điều phối và bài thử.
+ * Main hiện dùng sleep_ms cho Light-sleep trước mỗi lần nháy LED.
+ * Bộ điều phối cảm biến/radio độc lập chưa được ghép vào main.
  */
 #define NODE_DEFAULT_ADDR 0x02U
 #define NODE_GATEWAY_ADDR 0x00U
