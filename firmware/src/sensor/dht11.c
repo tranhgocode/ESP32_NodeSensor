@@ -50,7 +50,7 @@ node_result_t dht11_init(void)
     if (gpio_config(&config) != ESP_OK)
     {
         /* Chưa ready nếu cấu hình dở dang. Nhả output và ghi riêng lỗi cleanup
-         * nếu driver cũng không reset được; không che lỗi bằng NODE_OK. */
+         * nếu driver cũng không reset được, không che lỗi bằng NODE_OK. */
         const esp_err_t cleanup_result = gpio_reset_pin(pin);
         if (cleanup_result != ESP_OK)
         {

@@ -16,7 +16,7 @@ node_result_t node_payload_encode_data(const node_measurement_t *sample,
     temperature_bits = (uint16_t)sample->temperature_x10;
     out[0] = (uint8_t)(temperature_bits >> 8);
     out[1] = (uint8_t)temperature_bits;
-    /* Độ ẩm là số không dấu; cả hai trường đều gửi byte cao trước. */
+    /* Độ ẩm là số không dấu, cả hai trường đều gửi byte cao trước. */
     out[2] = (uint8_t)(sample->humidity_x10 >> 8);
     out[3] = (uint8_t)sample->humidity_x10;
 
@@ -30,7 +30,7 @@ node_result_t node_payload_encode_error(uint8_t error_code, uint8_t out[1])
         return NODE_INVALID_ARG;
     }
 
-    /* Chỉ giới hạn mã số tại đây; ý nghĩa từng mã không được suy ra từ codec. */
+    /* Chỉ giới hạn mã số tại đây, ý nghĩa từng mã không được suy ra từ codec. */
     if (error_code < 1U || error_code > 4U)
     {
         return NODE_OUT_OF_RANGE;

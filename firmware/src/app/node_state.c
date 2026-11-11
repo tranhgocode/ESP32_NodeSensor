@@ -34,7 +34,7 @@ void node_state_begin_ack_wait(node_context_t *ctx, int64_t tx_done_us)
     if (tx_done_us < 0 || tx_done_us > INT64_MAX - timeout_us)
     {
         /* Không mở cửa sổ từ một clock sai hoặc để phép cộng signed bị tràn.
-         * Đóng cả cửa sổ cũ; app vẫn kết thúc lượt và tăng counters bình thường. */
+         * Đóng cả cửa sổ cũ, app vẫn kết thúc lượt và tăng counters bình thường. */
         ctx->tx_done_us = 0;
         ctx->ack_deadline_us = 0;
         ctx->state = NODE_STATE_FINISH;
@@ -55,7 +55,7 @@ bool node_state_accept_ack(const node_context_t *ctx,
         return false;
     }
 
-    /* Clock được lấy lại sau decode; ACK đến đúng deadline không còn hợp lệ.
+    /* Clock được lấy lại sau decode, ACK đến đúng deadline không còn hợp lệ.
      * Gói sai chỉ trả false, tuyệt đối không tạo lại deadline từ now_us. */
     if (now_us < ctx->tx_done_us || now_us >= ctx->ack_deadline_us)
     {

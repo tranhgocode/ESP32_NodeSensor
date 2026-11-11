@@ -5,7 +5,7 @@
 
 /**
  * Mã kết quả nội bộ dùng để báo trạng thái giữa các module.
- * Các giá trị này không được ghi trực tiếp vào payload ERROR trên dây; mã
+ * Các giá trị này không được ghi trực tiếp vào payload ERROR trên dây, mã
  * ERROR hợp lệ của giao thức là các số 1 đến 4.
  */
 typedef enum
@@ -28,8 +28,8 @@ typedef enum
  */
 typedef struct
 {
-    int16_t temperature_x10; /**< Nhiệt độ nhân 10; số âm được giữ nguyên dấu. */
-    uint16_t humidity_x10;   /**< Độ ẩm nhân 10; miền lưu trữ là 0..65535. */
+    int16_t temperature_x10; /**< Nhiệt độ nhân 10, số âm được giữ nguyên dấu. */
+    uint16_t humidity_x10;   /**< Độ ẩm nhân 10, miền lưu trữ là 0..65535. */
 } node_measurement_t;
 
 #endif

@@ -89,7 +89,7 @@ node_result_t node_packet_encode(const node_packet_t *packet,
     out[5U + packet->len] = (uint8_t)(packet->seq >> 8);
     out[6U + packet->len] = (uint8_t)packet->seq;
 
-    /* CRC tính từ type đến seq_lo; hai byte CRC không tự tham gia phép tính. */
+    /* CRC tính từ type đến seq_lo, hai byte CRC không tự tham gia phép tính. */
     crc = crc16_ccitt_false(out, frame_size - 2U);
     out[7U + packet->len] = (uint8_t)(crc >> 8);
     out[8U + packet->len] = (uint8_t)crc;
