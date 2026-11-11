@@ -6,6 +6,7 @@ idf_component_register(
         "protocol/node_payload.c"
         "app/node_state.c"
         "sensor/dht11.c"
+        "radio/node_radio.c"
     INCLUDE_DIRS "../include" "."
-    PRIV_REQUIRES log freertos esp_driver_gpio esp-idf-lib__dht dernasherbrezon__sx127x
+    PRIV_REQUIRES log freertos esp_driver_gpio esp_driver_spi esp_timer esp_rom esp-idf-lib__dht dernasherbrezon__sx127x
 )
