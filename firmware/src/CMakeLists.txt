@@ -5,6 +5,7 @@ idf_component_register(
         "protocol/node_packet.c"
         "protocol/node_payload.c"
         "app/node_state.c"
+        "app/node_app.c"
         "sensor/dht11.c"
         "radio/node_radio.c"
         "power/node_power.c"
