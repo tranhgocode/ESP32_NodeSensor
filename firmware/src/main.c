@@ -1,8 +1,8 @@
 /*
- * Bài thử Task 6: LED thường GPIO15, Light-sleep và bộ đếm trong RAM.
+ * Bài thử LED thường GPIO15, Light-sleep và bộ đếm trong RAM.
  * Chạy độc lập khi chưa nối Ra-02, không truy cập radio hoặc đọc DHT11.
  * Sau khi ngủ đủ 5 giây, bật LED 100 ms rồi tắt và tăng ID/Seq một lần.
- * Task 7–8 sẽ tích hợp chu kỳ cảm biến/radio đầy đủ.
+ * Bộ điều phối cảm biến/radio chưa được ghép vào bài thử này.
  */
 #include <inttypes.h>
 
@@ -25,14 +25,14 @@ void app_main(void)
     const node_config_t config = NODE_CONFIG_DEFAULT;
     node_context_t ctx;
     node_state_init(&ctx, &config);
-    ESP_LOGI(TAG, "Task 6: LED GPIO%d HIGH=on, Light-sleep %lu ms; LED/sleep only, no radio required",
+    ESP_LOGI(TAG, "LED GPIO%d HIGH=on, Light-sleep %lu ms, LED/sleep only, no radio required",
              BOARD_STATUS_LED_GPIO, (unsigned long)config.sleep_ms);
     ESP_LOGI(TAG, "Boot ID=%u Seq=%u", (unsigned)ctx.id, (unsigned)ctx.seq);
 
     const node_result_t led_init = status_led_init();
     if (led_init != NODE_OK)
     {
-        ESP_LOGE(TAG, "LED init failed: %d; bench stopped", (int)led_init);
+        ESP_LOGE(TAG, "LED init failed: %d, bench stopped", (int)led_init);
         return;
     }
     for (;;)
@@ -49,7 +49,7 @@ void app_main(void)
         {
             /* Đây chỉ là khoảng chờ khi lỗi, không phải Light-sleep thành công.
              * Không tăng bộ đếm, đo hoặc phát dữ liệu sau khi ngủ thất bại. */
-            ESP_LOGE(TAG, "LED preparation/MCU sleep failed: %d; backoff %lu ms",
+            ESP_LOGE(TAG, "LED preparation/MCU sleep failed: %d, backoff %lu ms",
                      (int)result, (unsigned long)config.sleep_ms);
             vTaskDelay(pdMS_TO_TICKS(config.sleep_ms));
             continue;
@@ -60,7 +60,7 @@ void app_main(void)
                  ctx.id == saved_id && ctx.seq == saved_seq ? "preserved" : "MISMATCH");
         if (ctx.id != saved_id || ctx.seq != saved_seq)
         {
-            ESP_LOGE(TAG, "RAM counter mismatch; bench stopped");
+            ESP_LOGE(TAG, "RAM counter mismatch, bench stopped");
             return;
         }
         result = status_led_set(1, 0, 0);
@@ -71,7 +71,7 @@ void app_main(void)
         const node_result_t off_result = status_led_off();
         if (result != NODE_OK || off_result != NODE_OK)
         {
-            ESP_LOGE(TAG, "LED pulse failed: set=%d off=%d; backoff",
+            ESP_LOGE(TAG, "LED pulse failed: set=%d off=%d, backoff",
                      (int)result, (int)off_result);
             vTaskDelay(pdMS_TO_TICKS(config.sleep_ms));
             continue;
