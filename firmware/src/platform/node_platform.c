@@ -1,7 +1,9 @@
 #include "platform/node_platform.h"
 
 #include <inttypes.h>
+#include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 #include "board_config.h"
 #include "esp_log.h"
 #include "esp_timer.h"
@@ -93,6 +95,11 @@ static node_result_t platform_sleep_ms(uint32_t duration_ms)
     if (result != NODE_OK)
     {
         return result;
+    }
+    /* Đẩy hết stdio rồi chờ console truyền trước khi Light-sleep ngắt USB. */
+    if (fflush(stdout) != 0 || fsync(STDOUT_FILENO) != 0)
+    {
+        return NODE_IO_ERROR;
     }
     return node_power_sleep_ms(duration_ms);
 }
