@@ -4,9 +4,8 @@
 #include <stdint.h>
 
 /*
- * Các mặc định để tạo node_config_t, dùng chung cho bộ điều phối và bài thử.
- * Main hiện dùng sleep_ms cho Light-sleep trước mỗi lần nháy LED.
- * Bộ điều phối cảm biến/radio độc lập chưa được ghép vào main.
+ * Các mặc định để tạo node_config_t cho ứng dụng node tích hợp.
+ * Main nối bộ điều phối với driver thật, ngủ trước mỗi lần đo và gửi.
  */
 #define NODE_DEFAULT_ADDR 0x02U
 #define NODE_GATEWAY_ADDR 0x00U

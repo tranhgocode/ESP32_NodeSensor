@@ -10,7 +10,7 @@
  *         phù hợp hoặc một thao tác cấu hình thất bại. Không dò sự hiện diện
  *         cảm biến: mất kết nối thường chỉ được phát hiện ở lần read timeout.
  * Module dùng open-drain và pull-up ngoài về 3.3V, không cấp nguồn cảm biến.
- * Caller phải chờ ít nhất 1 giây sau cấp nguồn, bài thử main chờ 5 giây.
+ * Caller phải chờ ít nhất 1 giây sau cấp nguồn, ứng dụng ngủ 5 giây trước đo đầu.
  * Chỉ một task sở hữu driver, không gọi init/read đồng thời từ nhiều task.
  */
 node_result_t dht11_init(void);
