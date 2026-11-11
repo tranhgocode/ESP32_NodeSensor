@@ -4,8 +4,9 @@
 #include <stdint.h>
 
 /*
- * Các mặc định dùng để tạo node_config_t. Chúng mô tả giá trị cấu hình; mã
- * khởi động hiện tại chỉ in địa chỉ và timeout, chưa khởi tạo radio hay ngủ.
+ * Các mặc định dùng để tạo node_config_t. Bài thử Task 4 dùng sleep_ms làm
+ * khoảng vTaskDelay giữa các lần đọc DHT11; radio, ACK và Light-sleep chưa
+ * được ghép vào runtime. Các hằng radio phía dưới vẫn là cấu hình dự kiến.
  */
 #define NODE_DEFAULT_ADDR 0x02U
 #define NODE_GATEWAY_ADDR 0x00U
