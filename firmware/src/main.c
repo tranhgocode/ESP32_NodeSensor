@@ -1,5 +1,6 @@
 /* Một task sở hữu context và các driver, ISR radio chỉ chuyển sự kiện. */
 #include "app/node_app.h"
+#include "debug.h"
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -13,6 +14,7 @@ static const char *TAG = "sensor_node";
 
 void app_main(void)
 {
+    debug_trace_log_init();
     const node_config_t config = NODE_CONFIG_DEFAULT;
     const node_io_t *io = node_platform_io();
     node_context_t ctx;
