@@ -37,10 +37,10 @@
 
 /* Profile radio được chốt cùng gateway. Nếu đổi profile, cập nhật mapping
  * enum/library và test thay vì vô tình giữ giá trị hard-code không còn khớp. */
-_Static_assert(NODE_RADIO_BANDWIDTH_HZ == 125000U, "Task 5 profile requires BW125");
-_Static_assert(NODE_RADIO_CODING_RATE_DENOMINATOR == 5U, "Task 5 profile requires CR4/5");
-_Static_assert(NODE_RADIO_EXPLICIT_HEADER_ENABLED == 1, "Task 5 requires explicit header");
-_Static_assert(NODE_RADIO_INVERT_IQ_ENABLED == 0, "Task 5 requires normal IQ");
+_Static_assert(NODE_RADIO_BANDWIDTH_HZ == 125000U, "Radio profile requires BW125");
+_Static_assert(NODE_RADIO_CODING_RATE_DENOMINATOR == 5U, "Radio profile requires CR4/5");
+_Static_assert(NODE_RADIO_EXPLICIT_HEADER_ENABLED == 1, "Radio profile requires explicit header");
+_Static_assert(NODE_RADIO_INVERT_IQ_ENABLED == 0, "Radio profile requires normal IQ");
 
 typedef struct
 {
@@ -170,7 +170,7 @@ static node_result_t release_resources(void)
         if (gpio_isr_handler_remove((gpio_num_t)BOARD_RADIO_DIO0_GPIO) != ESP_OK)
         {
             /* ISR có thể còn dùng queue, giữ queue và tài nguyên để thử lại. */
-            ESP_LOGE(TAG, "Cannot remove DIO0 handler; resources retained");
+            ESP_LOGE(TAG, "Cannot remove DIO0 handler, resources retained");
             return NODE_IO_ERROR;
         }
         handler_installed = false;
@@ -203,7 +203,7 @@ static node_result_t release_resources(void)
     {
         if (spi_bus_remove_device(spi_device) != ESP_OK)
         {
-            ESP_LOGE(TAG, "Cannot remove SPI device; bus retained");
+            ESP_LOGE(TAG, "Cannot remove SPI device, bus retained");
             return NODE_IO_ERROR;
         }
         spi_device = NULL;
@@ -249,7 +249,7 @@ void node_radio_deinit(void)
 {
     if (release_resources() != NODE_OK)
     {
-        ESP_LOGE(TAG, "Radio cleanup incomplete; retry deinit before reuse");
+        ESP_LOGE(TAG, "Radio cleanup incomplete, retry deinit before reuse");
     }
 }
 
