@@ -4,9 +4,9 @@
 #include <stdint.h>
 
 /*
- * Các mặc định dùng để tạo node_config_t. Bench radio dùng sleep_ms làm
- * khoảng vTaskDelay trước mỗi lượt DATA/ERROR tổng hợp qua radio, có chờ ACK.
- * Đọc sensor và Light-sleep sẽ được ghép trong các task tiếp theo.
+ * Các mặc định để tạo node_config_t. Task 6 dùng sleep_ms cho Light-sleep
+ * thật trước mỗi lần nháy LED, chưa cần nối radio, không đo hoặc phát.
+ * Chu kỳ cảm biến và chờ ACK đầy đủ sẽ được tích hợp trong Task 7–8.
  */
 #define NODE_DEFAULT_ADDR 0x02U
 #define NODE_GATEWAY_ADDR 0x00U
