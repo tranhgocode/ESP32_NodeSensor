@@ -18,4 +18,7 @@
 #define BOARD_RADIO_RESET_GPIO 5
 #define BOARD_RADIO_DIO1_GPIO 6
 
+/* LED thường do người dùng xác nhận: GPIO15, HIGH bật, LOW tắt. */
+#define BOARD_STATUS_LED_GPIO 15
+
 #endif
