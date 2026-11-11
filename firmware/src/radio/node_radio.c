@@ -35,7 +35,7 @@
 #define RADIO_REG_INVERT_IQ2 0x3B
 #define RADIO_IQ2_NORMAL 0x1DU
 
-/* Profile Task 5 được chốt cùng gateway. Nếu đổi profile, cập nhật mapping
+/* Profile radio được chốt cùng gateway. Nếu đổi profile, cập nhật mapping
  * enum/library và test thay vì vô tình giữ giá trị hard-code không còn khớp. */
 _Static_assert(NODE_RADIO_BANDWIDTH_HZ == 125000U, "Task 5 profile requires BW125");
 _Static_assert(NODE_RADIO_CODING_RATE_DENOMINATOR == 5U, "Task 5 profile requires CR4/5");

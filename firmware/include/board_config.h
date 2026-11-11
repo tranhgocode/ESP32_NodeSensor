@@ -9,7 +9,7 @@
 
 /* Pin Ra-02 do người dùng cung cấp, đối chiếu schematic YD V1.4 và PDF S3.
  * SPI2/FSPI tách khỏi SPI1 của flash/PSRAM, không xung đột DHT11 GPIO7.
- * DIO1 được ghi nhận để mở rộng, chưa cấu hình hoặc bật IRQ ở Task 5. */
+ * DIO1 được ghi nhận để mở rộng, chưa cấu hình hoặc bật IRQ. */
 #define BOARD_RADIO_CS_GPIO 10
 #define BOARD_RADIO_MOSI_GPIO 11
 #define BOARD_RADIO_SCK_GPIO 12

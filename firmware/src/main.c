@@ -1,8 +1,8 @@
 /*
- * Bench radio Task 5: luân phiên DATA mẫu 25°C/60%RH và ERROR đọc lỗi,
+ * Bench radio: luân phiên DATA mẫu 25°C/60%RH và ERROR đọc lỗi,
  * gửi một lần mỗi lượt, chờ ACK đúng giao dịch tới deadline cũ. Dữ liệu này
  * là tổng hợp để kiểm tra byte/radio, không đọc DHT11 hoặc chứng minh sensor.
- * Task 7/8 sẽ thay bench bằng điều phối I/O và ứng dụng đầy đủ.
+ * Ứng dụng đầy đủ sẽ thay bench bằng phần điều phối I/O.
  */
 #include <inttypes.h>
 
@@ -143,7 +143,7 @@ void app_main(void)
     for (;;)
     {
         /* Radio ngủ trong khoảng nghỉ, MCU vẫn chỉ dùng vTaskDelay. Đây chưa
-         * là Light-sleep Task 6 hoặc chu kỳ sensor/ERROR thật của Task 7/8. */
+         * là Light-sleep hoặc chu kỳ sensor/ERROR thật. */
         const node_result_t sleep_result = node_radio_sleep();
         if (sleep_result != NODE_OK)
         {

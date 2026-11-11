@@ -4,7 +4,7 @@
 #include <stdint.h>
 
 /*
- * Các mặc định dùng để tạo node_config_t. Bench Task 5 dùng sleep_ms làm
+ * Các mặc định dùng để tạo node_config_t. Bench radio dùng sleep_ms làm
  * khoảng vTaskDelay trước mỗi lượt DATA/ERROR tổng hợp qua radio, có chờ ACK.
  * Đọc sensor và Light-sleep sẽ được ghép trong các task tiếp theo.
  */

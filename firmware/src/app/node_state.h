@@ -43,7 +43,7 @@ typedef struct
  *
  * @param ctx Context ghi được, do caller sở hữu, NULL thì không làm gì.
  * @param config Config đọc được, được chép các giá trị cần thiết, NULL thì
- *               giữ nguyên ctx. Kiểm tra địa chỉ cấu hình thuộc app ở Task 7.
+ *               giữ nguyên ctx. Ứng dụng chịu trách nhiệm kiểm tra địa chỉ cấu hình.
  * sensor_init_result bắt đầu NODE_INIT_FAILED (chưa init), app thay bằng kết
  * quả init thật trước khi chạy lượt đầu, không coi đây là thao tác driver.
  */
@@ -81,7 +81,7 @@ bool node_state_accept_ack(const node_context_t *ctx,
  * @param ctx Context của lượt đã bắt đầu (state khác SLEEP).
  * NULL hoặc state đã SLEEP thì không làm gì, tránh tăng lại nếu cleanup gọi
  * hai lần. Caller phải đặt MEASURE/TRANSMIT khi bắt đầu lượt kế tiếp. Hàm này
- * không gọi sleep thật, I/O và thời gian ngủ do ứng dụng điều phối ở Task 7.
+ * không gọi sleep thật, ứng dụng điều phối I/O và thời gian ngủ.
  */
 void node_state_finish_cycle(node_context_t *ctx);
 
