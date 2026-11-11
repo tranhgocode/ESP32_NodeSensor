@@ -36,6 +36,7 @@ typedef struct
     int64_t tx_done_us;               /**< Mốc TX_DONE của lượt hiện tại, đơn vị us. */
     int64_t ack_deadline_us;          /**< Deadline tuyệt đối, ACK đúng mốc này đã trễ. */
     node_result_t sensor_init_result; /**< App lưu kết quả init sensor, state không gọi sensor. */
+    bool app_initialized;            /**< App bật sau radio init thành công, state init đặt false. */
 } node_context_t;
 
 /**
