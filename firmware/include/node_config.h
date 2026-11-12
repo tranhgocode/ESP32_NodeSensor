@@ -1,6 +1,7 @@
 #ifndef NODE_CONFIG_H
 #define NODE_CONFIG_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 /*
@@ -12,6 +13,16 @@
 #define NODE_SLEEP_INTERVAL_MS 5000U
 #define NODE_TX_TIMEOUT_MS 3000U
 #define NODE_ACK_TIMEOUT_MS 1000U
+
+/* 0 bỏ đo PM2.5 và giữ SET LOW, 1 bật HM3301 và gửi DATA 8 byte. */
+#ifndef NODE_HM3301_ENABLED
+#define NODE_HM3301_ENABLED 0
+#endif
+#if NODE_HM3301_ENABLED != 0 && NODE_HM3301_ENABLED != 1
+#error "NODE_HM3301_ENABLED must be 0 or 1"
+#endif
+#define NODE_HM3301_WARMUP_MS 30000U            /* thời gian chờ ổn định của HM3301 */
+#define NODE_HM3301_MIN_WARMUP_MS 30000U        /* thời gian chờ tối thiểu của HM3301 */
 
 /* Chia áp 1/2, điện áp tại ADC 2100 mV tương ứng pin 4200 mV. */
 #define NODE_BATTERY_DIVIDER_NUMERATOR 2U
