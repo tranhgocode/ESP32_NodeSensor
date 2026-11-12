@@ -36,6 +36,7 @@ typedef struct
     int64_t tx_done_us;               /**< Mốc TX_DONE của lượt hiện tại, đơn vị us. */
     int64_t ack_deadline_us;          /**< Deadline tuyệt đối, ACK đúng mốc này đã trễ. */
     node_result_t sensor_init_result; /**< App lưu kết quả init sensor, state không gọi sensor. */
+    node_result_t battery_init_result; /**< App lưu kết quả init pin, lỗi pin không chặn DATA. */
     bool app_initialized;            /**< App bật sau radio init thành công, state init đặt false. */
 } node_context_t;
 
@@ -45,7 +46,7 @@ typedef struct
  * @param ctx Context ghi được, do caller sở hữu, NULL thì không làm gì.
  * @param config Config đọc được, được chép các giá trị cần thiết, NULL thì
  *               giữ nguyên ctx. Ứng dụng chịu trách nhiệm kiểm tra địa chỉ cấu hình.
- * sensor_init_result bắt đầu NODE_INIT_FAILED (chưa init), app thay bằng kết
+ * Kết quả init sensor và pin bắt đầu NODE_INIT_FAILED, app thay bằng kết
  * quả init thật trước khi chạy lượt đầu, không coi đây là thao tác driver.
  */
 void node_state_init(node_context_t *ctx, const node_config_t *config);
@@ -77,7 +78,7 @@ bool node_state_accept_ack(const node_context_t *ctx,
 
 /**
  * Kết thúc lượt thành công hoặc thất bại, tăng ID/Seq theo độ rộng từng trường
- * rồi về SLEEP và xóa cửa sổ ACK. Giữ cấu hình và sensor_init_result qua lượt.
+ * rồi về SLEEP và xóa cửa sổ ACK. Giữ cấu hình và kết quả init sensor/pin qua lượt.
  *
  * @param ctx Context của lượt đã bắt đầu (state khác SLEEP).
  * NULL hoặc state đã SLEEP thì không làm gì, tránh tăng lại nếu cleanup gọi

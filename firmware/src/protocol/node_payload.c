@@ -1,8 +1,9 @@
 #include "protocol/node_payload.h"
 
-/* DATA payload dùng hai số nguyên x10, không dùng float trên đường truyền. */
+/* DATA dùng hai số nguyên x10 và điện áp pin mV, không gửi float. */
 node_result_t node_payload_encode_data(const node_measurement_t *sample,
-                                       uint8_t out[4])
+                                       uint16_t battery_mv,
+                                       uint8_t out[NODE_DATA_PAYLOAD_SIZE])
 {
     uint16_t temperature_bits;
 
@@ -19,6 +20,8 @@ node_result_t node_payload_encode_data(const node_measurement_t *sample,
     /* Độ ẩm là số không dấu, cả hai trường đều gửi byte cao trước. */
     out[2] = (uint8_t)(sample->humidity_x10 >> 8);
     out[3] = (uint8_t)sample->humidity_x10;
+    out[4] = (uint8_t)(battery_mv >> 8);
+    out[5] = (uint8_t)battery_mv;
 
     return NODE_OK;
 }

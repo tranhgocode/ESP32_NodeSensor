@@ -11,6 +11,8 @@
 #include "power/node_power.h"
 #include "radio/node_radio.h"
 #include "sensor/dht11.h"
+#include "sensor/battery.h"
+#include "protocol/node_payload.h"
 
 #define TRACE_EVENT_LIMIT 8U
 #define TRACE_MESSAGE_SIZE 48U
@@ -106,8 +108,10 @@ static node_result_t platform_sleep_ms(uint32_t duration_ms)
 
 static const node_io_t PLATFORM_IO = {
     .sensor_init = dht11_init,
+    .battery_init = battery_init,
     .radio_init = node_radio_init,
     .sensor_read = dht11_read,
+    .battery_read_mv = battery_read_mv,
     .radio_send = platform_radio_send,
     .radio_receive = node_radio_receive,
     .radio_sleep = node_radio_sleep,
@@ -173,6 +177,15 @@ static void log_frame(const trace_event_t *entry)
         const uint16_t humidity = ((uint16_t)packet.payload[2] << 8) | packet.payload[3];
         ESP_LOGI(TAG, "DATA temperature_x10=%" PRId32 " humidity_x10=%u",
                  temperature, (unsigned)humidity);
+        const uint16_t battery_mv = ((uint16_t)packet.payload[4] << 8) | packet.payload[5];
+        if (battery_mv == NODE_BATTERY_MV_UNAVAILABLE)
+        {
+            ESP_LOGW(TAG, "DATA battery_mv=unavailable");
+        }
+        else
+        {
+            ESP_LOGI(TAG, "DATA battery_mv=%u", (unsigned)battery_mv);
+        }
     }
     else if (packet.type == NODE_PACKET_TYPE_ERROR)
     {

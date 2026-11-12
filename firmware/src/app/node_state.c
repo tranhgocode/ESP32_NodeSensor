@@ -17,6 +17,7 @@ void node_state_init(node_context_t *ctx, const node_config_t *config)
         .gateway_addr = config->gateway_addr,
         .ack_timeout_ms = config->ack_timeout_ms,
         .sensor_init_result = NODE_INIT_FAILED,
+        .battery_init_result = NODE_INIT_FAILED,
     };
 }
 

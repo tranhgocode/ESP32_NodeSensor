@@ -15,7 +15,7 @@ static node_result_t validate_packet_shape(const node_packet_t *packet)
             break;
 
         case NODE_PACKET_TYPE_DATA:
-            if (packet->len != 4U)
+            if (packet->len != NODE_DATA_PAYLOAD_SIZE)
             {
                 return NODE_INVALID_FRAME;
             }

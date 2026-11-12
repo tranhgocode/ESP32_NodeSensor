@@ -14,8 +14,10 @@
 typedef struct
 {
     node_result_t (*sensor_init)(void);
+    node_result_t (*battery_init)(void);
     node_result_t (*radio_init)(void);
     node_result_t (*sensor_read)(node_measurement_t *out);
+    node_result_t (*battery_read_mv)(uint16_t *out_mv);
     node_result_t (*radio_send)(const uint8_t *, size_t, uint32_t, int64_t *);
     node_result_t (*radio_receive)(uint8_t *, size_t, size_t *, int64_t);
     node_result_t (*radio_sleep)(void);

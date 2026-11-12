@@ -13,6 +13,7 @@
 /* Mỗi loại có ràng buộc độ dài riêng, xem node_packet_encode/decode. */
 #define NODE_PACKET_TYPE_POLL 0x01U
 #define NODE_PACKET_TYPE_DATA 0x02U
+#define NODE_DATA_PAYLOAD_SIZE 6U
 #define NODE_PACKET_TYPE_ACK 0x03U
 #define NODE_PACKET_TYPE_ERROR 0x04U
 

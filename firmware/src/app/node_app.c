@@ -15,6 +15,7 @@ static bool valid_arguments(const node_context_t *ctx, const node_config_t *conf
            config->gateway_addr != UINT8_MAX && config->node_addr != config->gateway_addr &&
            config->sleep_ms != 0 && config->tx_timeout_ms != 0 && config->ack_timeout_ms != 0 &&
            io->sensor_init != NULL && io->radio_init != NULL && io->sensor_read != NULL &&
+           io->battery_init != NULL && io->battery_read_mv != NULL &&
            io->radio_send != NULL && io->radio_receive != NULL && io->radio_sleep != NULL &&
            io->sleep_ms != NULL && io->encode_packet != NULL && io->now_us != NULL &&
            io->trace != NULL;
@@ -37,6 +38,22 @@ static node_result_t encode_frame(const node_io_t *io, const node_packet_t *pack
     return NODE_OK;
 }
 
+static uint16_t read_battery_mv(const node_context_t *ctx, const node_io_t *io)
+{
+    if (ctx->battery_init_result != NODE_OK)
+    {
+        return NODE_BATTERY_MV_UNAVAILABLE;
+    }
+    uint16_t millivolts = 0;
+    const node_result_t result = io->battery_read_mv(&millivolts);
+    if (result != NODE_OK)
+    {
+        io->trace("Battery read failed", result, NULL, 0);
+        return NODE_BATTERY_MV_UNAVAILABLE;
+    }
+    return millivolts;
+}
+
 static node_result_t prepare_frame(node_context_t *ctx, const node_io_t *io,
                                     uint8_t *frame, size_t *len)
 {
@@ -46,8 +63,9 @@ static node_result_t prepare_frame(node_context_t *ctx, const node_io_t *io,
         .dest = ctx->gateway_addr,
         .id = ctx->id,
         .seq = ctx->seq,
-        .len = 4,
+        .len = NODE_DATA_PAYLOAD_SIZE,
     };
+    const uint16_t battery_mv = read_battery_mv(ctx, io);
     uint8_t error = NODE_ERROR_SENSOR_INIT;
     if (ctx->sensor_init_result == NODE_OK)
     {
@@ -55,7 +73,9 @@ static node_result_t prepare_frame(node_context_t *ctx, const node_io_t *io,
         const node_result_t read_result = io->sensor_read(&sample);
         if (read_result == NODE_OK)
         {
-            node_result_t result = node_payload_encode_data(&sample, packet.payload);
+            node_result_t result = node_payload_encode_data(&sample,
+                                                            battery_mv,
+                                                            packet.payload);
             if (result == NODE_OK)
             {
                 result = encode_frame(io, &packet, frame, len);
@@ -147,6 +167,11 @@ node_result_t node_app_init(node_context_t *ctx, const node_config_t *config,
     if (ctx->sensor_init_result != NODE_OK)
     {
         io->trace("Sensor init failed", ctx->sensor_init_result, NULL, 0);
+    }
+    ctx->battery_init_result = io->battery_init();
+    if (ctx->battery_init_result != NODE_OK)
+    {
+        io->trace("Battery init failed", ctx->battery_init_result, NULL, 0);
     }
     ctx->app_initialized = true;
     return NODE_OK;
