@@ -16,10 +16,11 @@ typedef enum
     NODE_BUFFER_TOO_SMALL,   /**< Bộ đệm đích không đủ chỗ để mã hóa. */
     NODE_INIT_FAILED,        /**< Khởi tạo thành phần không thành công. */
     NODE_TIMEOUT,            /**< Một thao tác chờ vượt quá thời hạn. */
-    NODE_CHECKSUM_ERROR,     /**< CRC của khung không khớp. */
+    NODE_CHECKSUM_ERROR,     /**< CRC gói tin hoặc checksum cảm biến không khớp. */
     NODE_OUT_OF_RANGE,       /**< Giá trị nằm ngoài miền mà API chấp nhận. */
     NODE_IO_ERROR,           /**< Thao tác vào/ra không thành công. */
     NODE_ENCODE_FAILED,      /**< Mã hóa thất bại ở tầng gọi. */
+    NODE_NOT_READY,          /**< Cảm biến chưa đủ thời gian ổn định. */
 } node_result_t;
 
 /**
