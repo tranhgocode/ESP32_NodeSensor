@@ -1,27 +1,31 @@
 #ifndef BOARD_CONFIG_H
 #define BOARD_CONFIG_H
 
-/* Người dùng xác nhận DATA GPIO7, nguồn 3.3V, module DHT11 ba chân có pull-up.
- * Schematic YD-ESP32-S3 V1.4: net GPIO7 đi tới U4 IO7 và J1 chân 7.
- * Đây là số GPIO, không phải chỉ số chân header của một board bất kỳ.
- * Chỉ bổ sung chân cho thiết bị khác sau khi xác nhận dây nối riêng. */
+/* Chân dữ liệu DHT11, dùng module 3.3 V có điện trở kéo lên trên đường DATA.
+ * Các giá trị bên dưới là số GPIO của MCU. */
 #define BOARD_DHT11_GPIO 7
 
-/* Điểm giữa chia áp pin nối GPIO1, tương ứng ADC1_CH0 trên ESP32-S3. */
+/* Đầu vào ADC1_CH0 để đo điện áp pin qua mạch chia áp. */
 #define BOARD_BATTERY_GPIO 1
 
-/* Pin Ra-02 do người dùng cung cấp, đối chiếu schematic YD V1.4 và PDF S3.
- * SPI2/FSPI tách khỏi SPI1 của flash/PSRAM, không xung đột DHT11 GPIO7.
- * DIO1 được ghi nhận để mở rộng, chưa cấu hình hoặc bật IRQ. */
+/* Bus I2C đọc PM2.5 từ HM3301. */
+#define BOARD_HM3301_SDA_GPIO 8
+#define BOARD_HM3301_SCL_GPIO 9
+#define BOARD_HM3301_SET_GPIO 14    /* SET LOW cho cảm biến ngủ, SET HIGH bật quạt và bắt đầu warmup. */
+#define BOARD_HM3301_RESET_GPIO 16  /* Chân reset HM3301, firmware hiện không cấu hình hoặc điều khiển chân này. */
+
+
+/* Bus SPI2 giao tiếp radio Ra-02, tách khỏi SPI1 dùng cho flash và PSRAM. */
 #define BOARD_RADIO_CS_GPIO 10
 #define BOARD_RADIO_MOSI_GPIO 11
 #define BOARD_RADIO_SCK_GPIO 12
 #define BOARD_RADIO_MISO_GPIO 13
-#define BOARD_RADIO_DIO0_GPIO 4
-#define BOARD_RADIO_RESET_GPIO 5
-#define BOARD_RADIO_DIO1_GPIO 6
+#define BOARD_RADIO_DIO0_GPIO 4     /* DIO0 báo TX_DONE hoặc RX_DONE. */
+#define BOARD_RADIO_RESET_GPIO 5    /* RESET khởi tạo radio. */
+#define BOARD_RADIO_DIO1_GPIO 6     /* DIO1 dự phòng, firmware hiện không cấu hình hoặc bật ngắt. */
 
-/* LED thường do người dùng xác nhận: GPIO15, HIGH bật, LOW tắt. */
+
+/* LED trạng thái thông thường, HIGH bật và LOW tắt. */
 #define BOARD_STATUS_LED_GPIO 15
 
 #endif
