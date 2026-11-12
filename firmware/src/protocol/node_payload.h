@@ -7,6 +7,14 @@
 #include "protocol/node_packet.h"
 
 #define NODE_BATTERY_MV_UNAVAILABLE UINT16_MAX
+#define NODE_PM25_UNAVAILABLE UINT16_MAX
+
+/* DATA8 giữ sáu byte nhiệt độ, độ ẩm, pin và thêm PM2.5 Atmospheric ở byte 6..7.
+ * PM2.5 dùng đơn vị ug/m3, byte cao trước, UINT16_MAX biểu thị unavailable.
+ * Caller cấp ít nhất tám byte, đối số NULL trả lỗi và giữ nguyên output. */
+node_result_t node_payload_encode_data_pm25(const node_measurement_t *sample,
+                                            uint16_t battery_mv, uint16_t pm25_ug_m3,
+                                            uint8_t out[NODE_DATA_PM25_PAYLOAD_SIZE]);
 
 /**
  * Mã hóa mẫu đo và điện áp pin thành payload DATA cố định 6 byte.

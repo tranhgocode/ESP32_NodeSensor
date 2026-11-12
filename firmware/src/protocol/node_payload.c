@@ -1,5 +1,19 @@
 #include "protocol/node_payload.h"
 
+node_result_t node_payload_encode_data_pm25(const node_measurement_t *sample,
+                                            uint16_t battery_mv, uint16_t pm25_ug_m3,
+                                            uint8_t out[NODE_DATA_PM25_PAYLOAD_SIZE])
+{
+    const node_result_t result = node_payload_encode_data(sample, battery_mv, out);
+    if (result != NODE_OK)
+    {
+        return result;
+    }
+    out[6] = (uint8_t)(pm25_ug_m3 >> 8);
+    out[7] = (uint8_t)pm25_ug_m3;
+    return NODE_OK;
+}
+
 /* DATA dùng hai số nguyên x10 và điện áp pin mV, không gửi float. */
 node_result_t node_payload_encode_data(const node_measurement_t *sample,
                                        uint16_t battery_mv,
