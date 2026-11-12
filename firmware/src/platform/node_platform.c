@@ -12,6 +12,7 @@
 #include "radio/node_radio.h"
 #include "sensor/dht11.h"
 #include "sensor/battery.h"
+#include "sensor/hmi3301.h"
 #include "protocol/node_payload.h"
 
 #define TRACE_EVENT_LIMIT 8U
@@ -47,6 +48,7 @@ static const char *result_name(node_result_t result)
         case NODE_OUT_OF_RANGE: return "OUT_OF_RANGE";
         case NODE_IO_ERROR: return "IO_ERROR";
         case NODE_ENCODE_FAILED: return "ENCODE_FAILED";
+        case NODE_NOT_READY: return "NOT_READY";
         default: return "UNKNOWN";
     }
 }
@@ -109,6 +111,10 @@ static node_result_t platform_sleep_ms(uint32_t duration_ms)
 static const node_io_t PLATFORM_IO = {
     .sensor_init = dht11_init,
     .battery_init = battery_init,
+    .hm3301_init = hm3301_init,
+    .hm3301_wake = hm3301_wake,
+    .hm3301_read_pm25 = hm3301_read_pm25,
+    .hm3301_sleep = hm3301_sleep,
     .radio_init = node_radio_init,
     .sensor_read = dht11_read,
     .battery_read_mv = battery_read_mv,
@@ -133,10 +139,14 @@ void node_platform_log_config(const node_config_t *config)
         ESP_LOGE(TAG, "Missing node configuration");
         return;
     }
-    ESP_LOGI(TAG, "Node=0x%02X gateway=0x%02X sleep_ms=%" PRIu32
+    ESP_LOGI(TAG, "Node=0x%02X gateway=0x%02X measurement_interval_ms=%" PRIu32
              " tx_timeout_ms=%" PRIu32 " ack_timeout_ms=%" PRIu32,
              (unsigned)config->node_addr, (unsigned)config->gateway_addr,
-             config->sleep_ms, config->tx_timeout_ms, config->ack_timeout_ms);
+             config->measurement_interval_ms, config->tx_timeout_ms, config->ack_timeout_ms);
+    ESP_LOGI(TAG, "HM3301=%s hm3301_warmup_ms=%" PRIu32 " SDA=%d SCL=%d SET=%d RESET=%d unused",
+             config->hm3301_enabled ? "ON" : "OFF", config->hm3301_warmup_ms,
+             BOARD_HM3301_SDA_GPIO, BOARD_HM3301_SCL_GPIO,
+             BOARD_HM3301_SET_GPIO, BOARD_HM3301_RESET_GPIO);
     ESP_LOGI(TAG, "DHT11 GPIO%d, LED GPIO%d HIGH=on, radio CS%d MOSI%d SCK%d MISO%d DIO0=%d RESET=%d",
              BOARD_DHT11_GPIO, BOARD_STATUS_LED_GPIO, BOARD_RADIO_CS_GPIO,
              BOARD_RADIO_MOSI_GPIO, BOARD_RADIO_SCK_GPIO, BOARD_RADIO_MISO_GPIO,
@@ -185,6 +195,18 @@ static void log_frame(const trace_event_t *entry)
         else
         {
             ESP_LOGI(TAG, "DATA battery_mv=%u", (unsigned)battery_mv);
+        }
+        if (packet.len == NODE_DATA_PM25_PAYLOAD_SIZE)
+        {
+            const uint16_t pm25 = ((uint16_t)packet.payload[6] << 8) | packet.payload[7];
+            if (pm25 == NODE_PM25_UNAVAILABLE)
+            {
+                ESP_LOGW(TAG, "DATA pm25_ug_m3=unavailable");
+            }
+            else
+            {
+                ESP_LOGI(TAG, "DATA pm25_ug_m3=%u Atmospheric", (unsigned)pm25);
+            }
         }
     }
     else if (packet.type == NODE_PACKET_TYPE_ERROR)

@@ -6,6 +6,125 @@
 #define NODE_ERROR_SENSOR_RANGE 0x03U
 #define NODE_ERROR_DATA_ENCODING 0x04U
 #define NODE_FRAME_OVERHEAD 9U
+#define MICROSECONDS_PER_MILLISECOND INT64_C(1000)
+
+static bool hm3301_available(const node_context_t *ctx)
+{
+    return ctx->hm3301_enabled && ctx->hm3301_init_result == NODE_OK;
+}
+
+static void sleep_hm3301(const node_context_t *ctx, const node_io_t *io)
+{
+    if (ctx->hm3301_enabled)
+    {
+        const node_result_t result = io->hm3301_sleep();
+        if (result != NODE_OK)
+        {
+            io->trace("HM3301 sleep failed", result, NULL, 0);
+        }
+    }
+}
+
+static node_result_t select_measurement_due(const node_context_t *ctx,
+                                            const node_config_t *config,
+                                            const node_io_t *io, int64_t *due_us)
+{
+    const int64_t now = io->now_us();
+    const int64_t previous = ctx->last_measurement_due_us;
+    if (now < 0 || previous < 0 || now < previous)
+    {
+        return NODE_IO_ERROR;
+    }
+    const int64_t interval = (int64_t)config->measurement_interval_ms * MICROSECONDS_PER_MILLISECOND;
+    const int64_t preparation = hm3301_available(ctx) ?
+        (int64_t)config->hm3301_warmup_ms * MICROSECONDS_PER_MILLISECOND : 0;
+    if (now > INT64_MAX - preparation)
+    {
+        return NODE_OUT_OF_RANGE;
+    }
+    /* Chọn mốc còn đủ warmup trên lịch cũ, không phát bù các mốc đã lỡ. */
+    const int64_t remaining = now + preparation - previous;
+    int64_t slots = remaining / interval + (remaining % interval != 0);
+    if (slots == 0)
+    {
+        slots = 1;
+    }
+    if (slots > (INT64_MAX - previous) / interval)
+    {
+        return NODE_OUT_OF_RANGE;
+    }
+    *due_us = previous + slots * interval;
+    return NODE_OK;
+}
+
+static node_result_t sleep_until(const node_io_t *io, int64_t deadline_us)
+{
+    int64_t now = io->now_us();
+    if (now < 0 || deadline_us < 0)
+    {
+        return NODE_IO_ERROR;
+    }
+    while (now < deadline_us)
+    {
+        const int64_t remaining = deadline_us - now;
+        /* Làm tròn lên để không rút ngắn thời gian chờ còn lại dưới một ms. */
+        const int64_t rounded_ms = remaining / MICROSECONDS_PER_MILLISECOND +
+                                   (remaining % MICROSECONDS_PER_MILLISECOND != 0);
+        const uint32_t sleep_ms = rounded_ms > UINT32_MAX ? UINT32_MAX : (uint32_t)rounded_ms;
+        const node_result_t result = io->sleep_ms(sleep_ms);
+        if (result != NODE_OK)
+        {
+            return result;
+        }
+        const int64_t after = io->now_us();
+        if (after <= now)
+        {
+            return NODE_IO_ERROR;
+        }
+        now = after;
+    }
+    return NODE_OK;
+}
+
+static node_result_t wait_for_measurement(const node_context_t *ctx,
+                                          const node_config_t *config,
+                                          const node_io_t *io, int64_t due_us,
+                                          bool *hm_ready)
+{
+    *hm_ready = false;
+    sleep_hm3301(ctx, io);
+    if (!hm3301_available(ctx))
+    {
+        return sleep_until(io, due_us);
+    }
+    const int64_t warmup_us = (int64_t)config->hm3301_warmup_ms * MICROSECONDS_PER_MILLISECOND;
+    node_result_t result = sleep_until(io, due_us - warmup_us);
+    if (result != NODE_OK)
+    {
+        return result;
+    }
+    const int64_t wake_started = io->now_us();
+    if (wake_started < 0 || wake_started > INT64_MAX - warmup_us)
+    {
+        return NODE_IO_ERROR;
+    }
+    int64_t ready_at_us = 0;
+    result = io->hm3301_wake(config->hm3301_warmup_ms, &ready_at_us);
+    if (result != NODE_OK)
+    {
+        io->trace("HM3301 wake failed", result, NULL, 0);
+        sleep_hm3301(ctx, io);
+        return sleep_until(io, due_us);
+    }
+    if (ready_at_us < wake_started + warmup_us)
+    {
+        return NODE_IO_ERROR;
+    }
+    /* SET có thể lên HIGH trễ, luôn ưu tiên đủ warmup thay vì đọc sớm cho kịp mốc. */
+    result = sleep_until(io, ready_at_us > due_us ? ready_at_us : due_us);
+    *hm_ready = result == NODE_OK;
+    return result;
+}
 
 static bool valid_arguments(const node_context_t *ctx, const node_config_t *config,
                              const node_io_t *io)
@@ -13,9 +132,14 @@ static bool valid_arguments(const node_context_t *ctx, const node_config_t *conf
     return ctx != NULL && config != NULL && io != NULL &&
            config->node_addr != 0 && config->node_addr != UINT8_MAX &&
            config->gateway_addr != UINT8_MAX && config->node_addr != config->gateway_addr &&
-           config->sleep_ms != 0 && config->tx_timeout_ms != 0 && config->ack_timeout_ms != 0 &&
+           config->measurement_interval_ms != 0 && config->tx_timeout_ms != 0 && config->ack_timeout_ms != 0 &&
+           (!config->hm3301_enabled ||
+            (config->hm3301_warmup_ms >= NODE_HM3301_MIN_WARMUP_MS &&
+             config->measurement_interval_ms > config->hm3301_warmup_ms)) &&
            io->sensor_init != NULL && io->radio_init != NULL && io->sensor_read != NULL &&
            io->battery_init != NULL && io->battery_read_mv != NULL &&
+           io->hm3301_init != NULL && io->hm3301_wake != NULL &&
+           io->hm3301_read_pm25 != NULL && io->hm3301_sleep != NULL &&
            io->radio_send != NULL && io->radio_receive != NULL && io->radio_sleep != NULL &&
            io->sleep_ms != NULL && io->encode_packet != NULL && io->now_us != NULL &&
            io->trace != NULL;
@@ -55,7 +179,7 @@ static uint16_t read_battery_mv(const node_context_t *ctx, const node_io_t *io)
 }
 
 static node_result_t prepare_frame(node_context_t *ctx, const node_io_t *io,
-                                    uint8_t *frame, size_t *len)
+                                    bool hm_ready, uint8_t *frame, size_t *len)
 {
     node_packet_t packet = {
         .type = NODE_PACKET_TYPE_DATA,
@@ -63,9 +187,10 @@ static node_result_t prepare_frame(node_context_t *ctx, const node_io_t *io,
         .dest = ctx->gateway_addr,
         .id = ctx->id,
         .seq = ctx->seq,
-        .len = NODE_DATA_PAYLOAD_SIZE,
+        .len = ctx->hm3301_enabled ? NODE_DATA_PM25_PAYLOAD_SIZE : NODE_DATA_PAYLOAD_SIZE,
     };
     const uint16_t battery_mv = read_battery_mv(ctx, io);
+    bool hm_slept = false;
     uint8_t error = NODE_ERROR_SENSOR_INIT;
     if (ctx->sensor_init_result == NODE_OK)
     {
@@ -73,9 +198,25 @@ static node_result_t prepare_frame(node_context_t *ctx, const node_io_t *io,
         const node_result_t read_result = io->sensor_read(&sample);
         if (read_result == NODE_OK)
         {
-            node_result_t result = node_payload_encode_data(&sample,
-                                                            battery_mv,
-                                                            packet.payload);
+            uint16_t pm25 = NODE_PM25_UNAVAILABLE;
+            if (hm_ready)
+            {
+                uint16_t fresh_pm25 = 0;
+                const node_result_t pm_result = io->hm3301_read_pm25(&fresh_pm25);
+                if (pm_result == NODE_OK)
+                {
+                    pm25 = fresh_pm25;
+                }
+                else
+                {
+                    io->trace("HM3301 read failed", pm_result, NULL, 0);
+                }
+            }
+            sleep_hm3301(ctx, io);
+            hm_slept = true;
+            node_result_t result = ctx->hm3301_enabled ?
+                node_payload_encode_data_pm25(&sample, battery_mv, pm25, packet.payload) :
+                node_payload_encode_data(&sample, battery_mv, packet.payload);
             if (result == NODE_OK)
             {
                 result = encode_frame(io, &packet, frame, len);
@@ -95,6 +236,10 @@ static node_result_t prepare_frame(node_context_t *ctx, const node_io_t *io,
         }
     }
 
+    if (!hm_slept)
+    {
+        sleep_hm3301(ctx, io);
+    }
     packet.type = NODE_PACKET_TYPE_ERROR;
     packet.len = 1;
     node_result_t result = node_payload_encode_error(error, packet.payload);
@@ -173,6 +318,17 @@ node_result_t node_app_init(node_context_t *ctx, const node_config_t *config,
     {
         io->trace("Battery init failed", ctx->battery_init_result, NULL, 0);
     }
+    ctx->hm3301_init_result = io->hm3301_init(config->hm3301_enabled);
+    if (ctx->hm3301_init_result != NODE_OK)
+    {
+        io->trace("HM3301 init failed", ctx->hm3301_init_result, NULL, 0);
+    }
+    const int64_t now = io->now_us();
+    if (now < 0)
+    {
+        return NODE_IO_ERROR;
+    }
+    ctx->last_measurement_due_us = now;
     ctx->app_initialized = true;
     return NODE_OK;
 }
@@ -189,26 +345,38 @@ node_result_t node_app_run_cycle(node_context_t *ctx, const node_config_t *confi
         return NODE_INIT_FAILED;
     }
     if (ctx->state != NODE_STATE_SLEEP || ctx->node_addr != config->node_addr ||
-        ctx->gateway_addr != config->gateway_addr || ctx->ack_timeout_ms != config->ack_timeout_ms)
+        ctx->gateway_addr != config->gateway_addr || ctx->ack_timeout_ms != config->ack_timeout_ms ||
+        ctx->tx_timeout_ms != config->tx_timeout_ms ||
+        ctx->measurement_interval_ms != config->measurement_interval_ms ||
+        ctx->hm3301_enabled != config->hm3301_enabled ||
+        ctx->hm3301_warmup_ms != config->hm3301_warmup_ms)
     {
         return NODE_INVALID_ARG;
     }
 
-    node_result_t result = io->radio_sleep();
+    int64_t due_us = 0;
+    bool hm_ready = false;
+    node_result_t result = select_measurement_due(ctx, config, io, &due_us);
     if (result == NODE_OK)
     {
-        result = io->sleep_ms(config->sleep_ms);
+        result = io->radio_sleep();
+    }
+    if (result == NODE_OK)
+    {
+        result = wait_for_measurement(ctx, config, io, due_us, &hm_ready);
     }
     if (result != NODE_OK)
     {
+        sleep_hm3301(ctx, io);
         io->trace("Sleep preparation failed", result, NULL, 0);
         return result;
     }
 
     ctx->state = NODE_STATE_MEASURE;
+    ctx->last_measurement_due_us = due_us;
     uint8_t frame[NODE_PACKET_MAX_SIZE];
     size_t len = 0;
-    result = prepare_frame(ctx, io, frame, &len);
+    result = prepare_frame(ctx, io, hm_ready, frame, &len);
     if (result == NODE_OK)
     {
         ctx->state = NODE_STATE_TRANSMIT;

@@ -16,6 +16,11 @@ void node_state_init(node_context_t *ctx, const node_config_t *config)
         .node_addr = config->node_addr,
         .gateway_addr = config->gateway_addr,
         .ack_timeout_ms = config->ack_timeout_ms,
+        .tx_timeout_ms = config->tx_timeout_ms,
+        .measurement_interval_ms = config->measurement_interval_ms,
+        .hm3301_warmup_ms = config->hm3301_warmup_ms,
+        .hm3301_enabled = config->hm3301_enabled,
+        .hm3301_init_result = NODE_INIT_FAILED,
         .sensor_init_result = NODE_INIT_FAILED,
         .battery_init_result = NODE_INIT_FAILED,
     };

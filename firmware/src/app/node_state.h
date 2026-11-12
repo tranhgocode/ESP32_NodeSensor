@@ -33,6 +33,12 @@ typedef struct
     uint8_t node_addr;               /**< Địa chỉ đích bắt buộc của ACK. */
     uint8_t gateway_addr;            /**< Địa chỉ nguồn bắt buộc của ACK. */
     uint32_t ack_timeout_ms;          /**< Bản sao timeout từ config, đơn vị ms. */
+    uint32_t tx_timeout_ms;          /**< Bản sao cấu hình để từ chối thay đổi sau init. */
+    uint32_t measurement_interval_ms; /**< Chu kỳ giữa các mốc đo, đơn vị ms. */
+    uint32_t hm3301_warmup_ms;       /**< Thời gian chuẩn bị cảm biến bụi, đơn vị ms. */
+    bool hm3301_enabled;            /**< Chọn cảm biến bụi và schema DATA8 cho cả lượt. */
+    int64_t last_measurement_due_us;  /**< Mốc dự kiến, không phải thời điểm TX. */
+    node_result_t hm3301_init_result; /**< Giữ lỗi init để không tự khởi tạo lại driver. */
     int64_t tx_done_us;               /**< Mốc TX_DONE của lượt hiện tại, đơn vị us. */
     int64_t ack_deadline_us;          /**< Deadline tuyệt đối, ACK đúng mốc này đã trễ. */
     node_result_t sensor_init_result; /**< App lưu kết quả init sensor, state không gọi sensor. */
