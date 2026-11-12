@@ -7,6 +7,9 @@
  * Chỉ bổ sung chân cho thiết bị khác sau khi xác nhận dây nối riêng. */
 #define BOARD_DHT11_GPIO 7
 
+/* Điểm giữa chia áp pin nối GPIO1, tương ứng ADC1_CH0 trên ESP32-S3. */
+#define BOARD_BATTERY_GPIO 1
+
 /* Pin Ra-02 do người dùng cung cấp, đối chiếu schematic YD V1.4 và PDF S3.
  * SPI2/FSPI tách khỏi SPI1 của flash/PSRAM, không xung đột DHT11 GPIO7.
  * DIO1 được ghi nhận để mở rộng, chưa cấu hình hoặc bật IRQ. */

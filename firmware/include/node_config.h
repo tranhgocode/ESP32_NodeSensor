@@ -13,6 +13,11 @@
 #define NODE_TX_TIMEOUT_MS 3000U
 #define NODE_ACK_TIMEOUT_MS 1000U
 
+/* Chia áp 1/2, điện áp tại ADC 2100 mV tương ứng pin 4200 mV. */
+#define NODE_BATTERY_DIVIDER_NUMERATOR 2U
+#define NODE_BATTERY_DIVIDER_DENOMINATOR 1U
+#define NODE_BATTERY_SAMPLE_COUNT 16U
+
 /* Profile SX1278 áp dụng trong node_radio, gateway đã chốt preamble/header/IQ. */
 #define NODE_RADIO_FREQUENCY_HZ 433000000U
 #define NODE_RADIO_TX_POWER_DBM 17
