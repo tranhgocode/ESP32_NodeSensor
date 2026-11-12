@@ -19,14 +19,13 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+.ipynb_checkpoints/
 
 # Local environment variables (keep example files)
 .env
 .env.*
 !.env.example
 !.env.*.example
-.vscode/c_cpp_properties.json
-.vscode/settings.json
 
 # Temporary editor and OS files
 *.swp
@@ -37,9 +36,14 @@ Thumbs.db
 Desktop.ini
 
 # User-specific files
+.vscode/settings.json
 *.sublime-workspace
 my_plan.md
 AGENTS.md
 /Docs/superpowers/*
 /firmware/test/
 ESP32_node.code-workspace
+
+# Forecasting project generated files and dataset archives
+/HN_PM2.5_forecasting/logs/
+/HN_PM2.5_forecasting/data/**/*.zip
