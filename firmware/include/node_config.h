@@ -8,11 +8,31 @@
  * Các mặc định để tạo node_config_t cho ứng dụng node tích hợp.
  * Main nối bộ điều phối với driver thật, ngủ trước mỗi lần đo và gửi.
  */
-#define NODE_DEFAULT_ADDR 0x02U                 /* địa chỉ mặc định của node */
-#define NODE_GATEWAY_ADDR 0x00U                 /* địa chỉ gateway */
-#define NODE_MEASUREMENT_INTERVAL_MS 300000U    /* chu kỳ giữa các lần wakeup */
-#define NODE_TX_TIMEOUT_MS 3000U                /* thời gian chờ phát */
-#define NODE_ACK_TIMEOUT_MS 1000U               /* thời gian chờ ACK */
+#define NODE_DEFAULT_ADDR 0x02U             /* địa chỉ mặc định của node */
+#define NODE_GATEWAY_ADDR 0x00U             /* địa chỉ gateway */
+#ifndef NODE_MEASUREMENT_INTERVAL_MS
+#define NODE_MEASUREMENT_INTERVAL_MS 10000U /* chu kỳ giữa các lần wakeup */
+#endif
+#define NODE_TX_TIMEOUT_MS 3000U            /* thời gian chờ phát */
+#define NODE_ACK_TIMEOUT_MS 1000U           /* thời gian chờ ACK */
+
+/* Một lựa chọn duy nhất tránh cấu hình hai cảm biến cùng hoạt động. */
+#define NODE_TEMP_HUM_SENSOR_DHT11 1
+#define NODE_TEMP_HUM_SENSOR_SHT30 2
+#ifndef NODE_TEMP_HUM_SENSOR
+#define NODE_TEMP_HUM_SENSOR NODE_TEMP_HUM_SENSOR_DHT11
+#endif
+#if NODE_TEMP_HUM_SENSOR != NODE_TEMP_HUM_SENSOR_DHT11 && \
+    NODE_TEMP_HUM_SENSOR != NODE_TEMP_HUM_SENSOR_SHT30
+#error "NODE_TEMP_HUM_SENSOR must select DHT11 or SHT30"
+#endif
+
+#ifndef NODE_SHT30_I2C_ADDRESS
+#define NODE_SHT30_I2C_ADDRESS 0x44U
+#endif
+#if NODE_SHT30_I2C_ADDRESS != 0x44 && NODE_SHT30_I2C_ADDRESS != 0x45
+#error "NODE_SHT30_I2C_ADDRESS must be 0x44 or 0x45"
+#endif
 
 /* 0 bỏ đo PM2.5 và giữ SET LOW, 1 bật HM3301 và gửi DATA 8 byte. */
 #ifndef NODE_HM3301_ENABLED
@@ -21,15 +41,13 @@
 #if NODE_HM3301_ENABLED != 0 && NODE_HM3301_ENABLED != 1
 #error "NODE_HM3301_ENABLED must be 0 or 1"
 #endif
-#define NODE_HM3301_WARMUP_MS 30000U            /* thời gian chờ ổn định của HM3301 */
-#define NODE_HM3301_MIN_WARMUP_MS 30000U        /* thời gian chờ tối thiểu của HM3301 */
-
-
+#define NODE_HM3301_WARMUP_MS 30000U     /* thời gian chờ ổn định của HM3301 */
+#define NODE_HM3301_MIN_WARMUP_MS 30000U /* thời gian chờ tối thiểu của HM3301 */
 
 /* Chia áp 1/2, điện áp tại ADC 2100 mV tương ứng pin 4200 mV. */
 #define NODE_BATTERY_DIVIDER_NUMERATOR 2U
 #define NODE_BATTERY_DIVIDER_DENOMINATOR 1U
-#define NODE_BATTERY_SAMPLE_COUNT 16U           /* số lần lấy mẫu điện áp pin */
+#define NODE_BATTERY_SAMPLE_COUNT 16U /* số lần lấy mẫu điện áp pin */
 
 /* Tham số LoRa của node, gateway phải dùng cùng profile để nhận gói. */
 #define NODE_RADIO_FREQUENCY_HZ 433000000U
@@ -51,25 +69,25 @@
  */
 typedef struct
 {
-    uint8_t node_addr;                  /**< Địa chỉ nguồn của node. */
-    uint8_t gateway_addr;               /**< Địa chỉ đích mặc định của gateway. */
-    uint32_t measurement_interval_ms;   /**< Chu kỳ mục tiêu gồm nghỉ và warmup. */
-    bool hm3301_enabled;                /**< Chọn DATA 8 byte khi bật cảm biến bụi. */
-    uint32_t hm3301_warmup_ms;          /**< Ít nhất 30 giây sau SET HIGH. */
-    uint32_t tx_timeout_ms;             /**< Giới hạn chờ thao tác phát, tính bằng mili giây. */
-    uint32_t ack_timeout_ms;            /**< Giới hạn chờ ACK, tính bằng mili giây. */
+    uint8_t node_addr;                /**< Địa chỉ nguồn của node. */
+    uint8_t gateway_addr;             /**< Địa chỉ đích mặc định của gateway. */
+    uint32_t measurement_interval_ms; /**< Chu kỳ mục tiêu gồm nghỉ và warmup. */
+    bool hm3301_enabled;              /**< Chọn DATA 8 byte khi bật cảm biến bụi. */
+    uint32_t hm3301_warmup_ms;        /**< Ít nhất 30 giây sau SET HIGH. */
+    uint32_t tx_timeout_ms;           /**< Giới hạn chờ thao tác phát, tính bằng mili giây. */
+    uint32_t ack_timeout_ms;          /**< Giới hạn chờ ACK, tính bằng mili giây. */
 } node_config_t;
 
 /* Khởi tạo đủ các trường cấu hình bằng hằng số ở trên, không cấp phát tài nguyên. */
-#define NODE_CONFIG_DEFAULT                          \
-    {                                                \
-        .node_addr = NODE_DEFAULT_ADDR,              \
-        .gateway_addr = NODE_GATEWAY_ADDR,           \
+#define NODE_CONFIG_DEFAULT                                      \
+    {                                                            \
+        .node_addr = NODE_DEFAULT_ADDR,                          \
+        .gateway_addr = NODE_GATEWAY_ADDR,                       \
         .measurement_interval_ms = NODE_MEASUREMENT_INTERVAL_MS, \
-        .hm3301_enabled = NODE_HM3301_ENABLED,       \
-        .hm3301_warmup_ms = NODE_HM3301_WARMUP_MS,   \
-        .tx_timeout_ms = NODE_TX_TIMEOUT_MS,         \
-        .ack_timeout_ms = NODE_ACK_TIMEOUT_MS,       \
+        .hm3301_enabled = NODE_HM3301_ENABLED,                   \
+        .hm3301_warmup_ms = NODE_HM3301_WARMUP_MS,               \
+        .tx_timeout_ms = NODE_TX_TIMEOUT_MS,                     \
+        .ack_timeout_ms = NODE_ACK_TIMEOUT_MS,                   \
     }
 
 #endif
