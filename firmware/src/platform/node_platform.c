@@ -10,7 +10,7 @@
 #include "indicator/status_led.h"
 #include "power/node_power.h"
 #include "radio/node_radio.h"
-#include "sensor/dht11.h"
+#include "sensor/select_sensor.h"
 #include "sensor/battery.h"
 #include "sensor/hmi3301.h"
 #include "protocol/node_payload.h"
@@ -109,14 +109,14 @@ static node_result_t platform_sleep_ms(uint32_t duration_ms)
 }
 
 static const node_io_t PLATFORM_IO = {
-    .sensor_init = dht11_init,
+    .sensor_init = node_sensor_init,
     .battery_init = battery_init,
     .hm3301_init = hm3301_init,
     .hm3301_wake = hm3301_wake,
     .hm3301_read_pm25 = hm3301_read_pm25,
     .hm3301_sleep = hm3301_sleep,
     .radio_init = node_radio_init,
-    .sensor_read = dht11_read,
+    .sensor_read = node_sensor_read,
     .battery_read_mv = battery_read_mv,
     .radio_send = platform_radio_send,
     .radio_receive = node_radio_receive,
@@ -147,8 +147,15 @@ void node_platform_log_config(const node_config_t *config)
              config->hm3301_enabled ? "ON" : "OFF", config->hm3301_warmup_ms,
              BOARD_HM3301_SDA_GPIO, BOARD_HM3301_SCL_GPIO,
              BOARD_HM3301_SET_GPIO, BOARD_HM3301_RESET_GPIO);
-    ESP_LOGI(TAG, "DHT11 GPIO%d, LED GPIO%d HIGH=on, radio CS%d MOSI%d SCK%d MISO%d DIO0=%d RESET=%d",
-             BOARD_DHT11_GPIO, BOARD_STATUS_LED_GPIO, BOARD_RADIO_CS_GPIO,
+#if NODE_TEMP_HUM_SENSOR == NODE_TEMP_HUM_SENSOR_DHT11
+    ESP_LOGI(TAG, "Temperature/humidity sensor=%s GPIO%d", node_sensor_name(), BOARD_DHT11_GPIO);
+#else
+    ESP_LOGI(TAG, "Temperature/humidity sensor=%s SDA=%d SCL=%d address=0x%02X",
+             node_sensor_name(), BOARD_SENSOR_I2C_SDA_GPIO, BOARD_SENSOR_I2C_SCL_GPIO,
+             (unsigned)NODE_SHT30_I2C_ADDRESS);
+#endif
+    ESP_LOGI(TAG, "LED GPIO%d HIGH=on, radio CS%d MOSI%d SCK%d MISO%d DIO0=%d RESET=%d",
+             BOARD_STATUS_LED_GPIO, BOARD_RADIO_CS_GPIO,
              BOARD_RADIO_MOSI_GPIO, BOARD_RADIO_SCK_GPIO, BOARD_RADIO_MISO_GPIO,
              BOARD_RADIO_DIO0_GPIO, BOARD_RADIO_RESET_GPIO);
     ESP_LOGI(TAG, "LoRa Hz=%u power_dbm=%d SF=%u BW=%u CR=4/%u sync=0x%02X",
