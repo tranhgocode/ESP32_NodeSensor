@@ -8,9 +8,11 @@
 /* Đầu vào ADC1_CH0 để đo điện áp pin qua mạch chia áp. */
 #define BOARD_BATTERY_GPIO 1
 
-/* Bus I2C đọc PM2.5 từ HM3301. */
-#define BOARD_HM3301_SDA_GPIO 8
-#define BOARD_HM3301_SCL_GPIO 9
+/* Hai cảm biến dùng chung đường dây, địa chỉ I2C phân biệt từng device. */
+#define BOARD_SENSOR_I2C_SDA_GPIO 8
+#define BOARD_SENSOR_I2C_SCL_GPIO 9
+#define BOARD_HM3301_SDA_GPIO BOARD_SENSOR_I2C_SDA_GPIO
+#define BOARD_HM3301_SCL_GPIO BOARD_SENSOR_I2C_SCL_GPIO
 #define BOARD_HM3301_SET_GPIO 14    /* SET LOW cho cảm biến ngủ, SET HIGH bật quạt và bắt đầu warmup. */
 #define BOARD_HM3301_RESET_GPIO 16  /* Chân reset HM3301, firmware hiện không cấu hình hoặc điều khiển chân này. */
 
