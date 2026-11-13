@@ -6,6 +6,7 @@
 #include "driver/gpio.h"
 #include "driver/i2c_master.h"
 #include "esp_timer.h"
+#include "platform/node_i2c.h"
 
 #define HM3301_ADDRESS 0x40U
 #define HM3301_I2C_COMMAND 0x88U
@@ -13,10 +14,9 @@
 #define HM3301_PM25_OFFSET 12U
 #define HM3301_I2C_HZ 100000U
 #define HM3301_I2C_TIMEOUT_MS 100
-#define HM3301_GLITCH_IGNORE_COUNT 7U
 #define MICROSECONDS_PER_MILLISECOND INT64_C(1000)
 
-/* Driver sở hữu tài nguyên riêng, chỉ luồng ứng dụng truy cập tuần tự. */
+/* Device thuộc driver, bus chỉ được mượn để cleanup không ảnh hưởng SHT30. */
 static i2c_master_bus_handle_t bus;
 static i2c_master_dev_handle_t device;
 static bool enabled;
@@ -47,10 +47,10 @@ static node_result_t release_resources(void)
     }
     if (bus != NULL)
     {
-        const esp_err_t error = i2c_del_master_bus(bus);
-        if (error != ESP_OK)
+        const node_result_t result = node_i2c_release();
+        if (result != NODE_OK)
         {
-            return map_result(error);
+            return result;
         }
         bus = NULL;
     }
@@ -107,15 +107,7 @@ node_result_t hm3301_init(bool requested_enabled)
     {
         return NODE_OK;
     }
-    const i2c_master_bus_config_t bus_config = {
-        .i2c_port = -1,
-        .sda_io_num = BOARD_HM3301_SDA_GPIO,
-        .scl_io_num = BOARD_HM3301_SCL_GPIO,
-        .clk_source = I2C_CLK_SRC_DEFAULT,
-        .glitch_ignore_cnt = HM3301_GLITCH_IGNORE_COUNT,
-        .flags.enable_internal_pullup = true,
-    };
-    result = map_result(i2c_new_master_bus(&bus_config, &bus));
+    result = node_i2c_acquire(&bus);
     if (result == NODE_OK)
     {
         const i2c_device_config_t device_config = {

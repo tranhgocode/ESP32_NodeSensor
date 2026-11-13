@@ -8,9 +8,10 @@
 /* Chỉ luồng ứng dụng sử dụng driver, tài nguyên được giữ qua Light-sleep.
  * App khởi tạo một lần, driver không tự reset hoặc khởi tạo lại khi lỗi. */
 
-/* Chuẩn bị SET LOW, chỉ tạo bus I2C khi enabled là true.
+/* Chuẩn bị SET LOW, chỉ mượn bus I2C khi enabled là true.
  * Không gửi lệnh đến cảm biến đang ngủ. Nếu caller chủ động gọi init lại,
- * driver giải phóng tài nguyên cũ trước khi tạo tài nguyên mới. */
+ * driver gỡ device và trả lượt giữ bus cũ trước khi tạo device mới.
+ * Cleanup lỗi giữ lại handle để không xóa bus mà cảm biến khác đang dùng. */
 node_result_t hm3301_init(bool enabled);
 
 /* Đưa SET HIGH và trả mốc sẵn sàng theo clock monotonic, đơn vị micro giây.
