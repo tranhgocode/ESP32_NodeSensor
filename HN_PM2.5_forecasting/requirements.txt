@@ -1,7 +1,0 @@
-m2cgen
-xgboost
-pandas
-numpy
-matplotlib
-seaborn
-scikit-learn

@@ -1,0 +1,12 @@
+tensorflow
+xgboost
+m2cgen
+scikit-learn
+numpy
+pandas
+matplotlib
+seaborn
+PyYAML
+jupyterlab
+ipykernel
+pyserial
