@@ -1,0 +1,12 @@
+data/processed/
+runs/
+reports/tables/data_*
+reports/figures/data_*
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.ipynb_checkpoints/
+tests/.fixture_*/
+.notebook_kernel/
+/tests/

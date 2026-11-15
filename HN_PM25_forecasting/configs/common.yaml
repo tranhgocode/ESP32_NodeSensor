@@ -1,0 +1,20 @@
+paths:
+  input_csv: data/Hanoi_aqi/hanoi_aqi_ml_ready_fixed.csv
+  processed: data/processed/pm25_24x24_20251121_linear_v2
+  tables: reports/tables
+  figures: reports/figures
+data:
+  timezone: UTC
+  end_exclusive: "2025-11-22T00:00:00Z"
+  features: [pm25, temperature, humidity]
+  lookback: 24
+  horizon: 24
+missing:
+  method: linear
+  max_gap_hours: 3
+split:
+  train_fraction: 0.70
+  validation_fraction: 0.15
+provenance:
+  allowed_sources: [OpenAQ]
+  evidence: {}
