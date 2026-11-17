@@ -1,7 +1,7 @@
 data/processed/
 runs/
-reports/tables/data_*
-reports/figures/data_*
+visualizations/tables/data_*
+visualizations/figures/data_*
 __pycache__/
 *.py[cod]
 .venv/
@@ -9,4 +9,9 @@ venv/
 .ipynb_checkpoints/
 tests/.fixture_*/
 .notebook_kernel/
+*.pyc
+*.pyo
+*.pyd
 /tests/
+visualizations/tables/models_*/
+visualizations/figures/models_*/
