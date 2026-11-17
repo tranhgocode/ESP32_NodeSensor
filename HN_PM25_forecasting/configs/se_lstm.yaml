@@ -1,0 +1,11 @@
+model:
+  name: se_lstm
+  input_shape: [null, 3]  # [time_steps, features], channels follow common.yaml data.features
+
+  layers:
+    - {type: LSTM, units: 64, return_sequences: true}
+    - {type: SqueezeExcite1D, reduction_ratio: 8}  # Custom block from src/models/se_lstm.py
+    - {type: Dropout, rate: 0.2}
+    - {type: LSTM, units: 32, return_sequences: false}
+    - {type: Dropout, rate: 0.2}
+    - {type: Dense, units: 4}
