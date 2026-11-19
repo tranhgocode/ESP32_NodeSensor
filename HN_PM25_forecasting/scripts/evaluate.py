@@ -88,7 +88,7 @@ def _predict_split(checkpoint, processed, split, config) -> SplitForecast:
             f"Checkpoint predicted shape {scaled.shape}, expected {data.y.shape}"
         )
 
-    origins = windows.origins.as_unit("ns").asi8
+    origins = windows.origins.as_unit("ns").to_numpy(dtype=np.int64)
     offsets = np.arange(1, HORIZON_HOURS + 1) * NANOSECONDS_PER_HOUR
     return SplitForecast(
         windows.X_raw,

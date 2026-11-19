@@ -1,4 +1,4 @@
-# Hướng dẫn chạy dự báo PM2.5
+# Hướng dẫn
 
 ## 1. Tổng quan
 
