@@ -1,200 +1,156 @@
-"""Nội suy trong lịch sử và chuẩn hóa chỉ dựa trên tập train cho các cửa sổ dự báo."""
+"""Train-only scaling for 24-hour histories and four hourly PM2.5 targets."""
 
 from dataclasses import dataclass
-import json
 from pathlib import Path
-
 import numpy as np
 import pandas as pd
-import sklearn
 from sklearn.preprocessing import StandardScaler
-
-from .utils import FEATURES, HORIZON_HOURS, LOOKBACK_HOURS, MAX_GAP_HOURS
-
-NO_DONOR = -1
-FEATURE_COUNT = len(FEATURES)
-
-
-@dataclass
-class PreparedHistory:
-    """Các giá trị đã bù cùng metadata riêng về ô được bù và donor ban đầu."""
-
-    values: pd.DataFrame
-    imputed_mask: pd.DataFrame
-    left_donor_times: pd.DataFrame
-    right_donor_times: pd.DataFrame
-    valid: bool
-
-
-def interpolate_history_arrays(values, trusted_mask, epoch_ns, max_gap_hours):
-    """Nội suy theo thời gian giữa hai quan sát gốc trong cùng cửa sổ.
-
-    Neo phải có thể sau ô thiếu nhưng không muộn hơn origin dự báo.
-    """
-    if type(max_gap_hours) is not int or not 0 <= max_gap_hours <= MAX_GAP_HOURS:
-        raise ValueError("Invalid gap limit")
-    filled = np.where(trusted_mask, values, np.nan).astype(float, copy=True)
-    filled[~np.isfinite(filled)] = np.nan
-    imputed = np.zeros(filled.shape, dtype=bool)
-    left_donors = np.full(filled.shape, NO_DONOR, dtype=np.int64)
-    right_donors = np.full(filled.shape, NO_DONOR, dtype=np.int64)
-    for column in range(filled.shape[1]):
-        observed = np.flatnonzero(np.isfinite(filled[:, column]))
-        for left, right in zip(observed[:-1], observed[1:]):
-            gap = right - left - 1
-            if not 0 < gap <= max_gap_hours:
-                continue
-            # Hai mốc neo đều là quan sát gốc có sẵn không muộn hơn origin.
-            for row in range(left + 1, right):
-                elapsed = int(epoch_ns[row]) - int(epoch_ns[left])
-                span = int(epoch_ns[right]) - int(epoch_ns[left])
-                fraction = elapsed / span
-                filled[row, column] = filled[left, column] + fraction * (
-                    filled[right, column] - filled[left, column]
-                )
-                imputed[row, column] = True
-                left_donors[row, column] = epoch_ns[left]
-                right_donors[row, column] = epoch_ns[right]
-    return filled, imputed, left_donors, right_donors
-
-
-def prepare_history(
-    values: pd.DataFrame, trusted_mask: pd.DataFrame, max_gap_hours: int
-) -> PreparedHistory:
-    """Nội suy lịch sử 24 giờ và trả về mask cùng thời điểm hai đầu neo."""
-    if (
-        len(values) != LOOKBACK_HOURS
-        or not values.index.equals(trusted_mask.index)
-        or list(values.columns) != list(trusted_mask.columns)
-    ):
-        raise ValueError("History requires 24 aligned rows")
-    filled, imputed, left_donors, right_donors = interpolate_history_arrays(
-        values.to_numpy(dtype=float),
-        trusted_mask.to_numpy(dtype=bool),
-        values.index.as_unit("ns").asi8,
-        max_gap_hours,
-    )
-    left_frame = pd.DataFrame(index=values.index, columns=values.columns, dtype=object)
-    right_frame = pd.DataFrame(index=values.index, columns=values.columns, dtype=object)
-    for column in range(len(values.columns)):
-        for row in np.flatnonzero(imputed[:, column]):
-            left_frame.iat[row, column] = pd.Timestamp(
-                left_donors[row, column], unit="ns", tz="UTC"
-            )
-            right_frame.iat[row, column] = pd.Timestamp(
-                right_donors[row, column], unit="ns", tz="UTC"
-            )
-    return PreparedHistory(
-        pd.DataFrame(filled, index=values.index, columns=values.columns),
-        pd.DataFrame(imputed, index=values.index, columns=values.columns),
-        left_frame,
-        right_frame,
-        bool(np.isfinite(filled).all()),
-    )
-
-
-def origin_is_observed(trusted_mask: pd.DataFrame, origin: pd.Timestamp) -> bool:
-    """Cho biết mọi feature có đáng tin cậy tại đúng origin dự báo hay không."""
-    return origin in trusted_mask.index and bool(trusted_mask.loc[origin].all())
+from .utils import FEATURES, HORIZON_HOURS, LOOKBACK_HOURS, read_json, write_json
 
 
 @dataclass
 class ScalerBundle:
-    """Các scaler feature và target được khớp trên tập train cùng thứ tự feature cố định."""
+    """Separate input-column statistics and a separate PM2.5 label scaler."""
 
     x: StandardScaler
     y: StandardScaler
     features: tuple = FEATURES
 
+    @classmethod
+    def fit(cls, values: pd.DataFrame, train_bounds):
+        """Use each original train hour once, never overlapping windows."""
+        train = _select_train_values(values, train_bounds)
+        inputs = _fit_scaler(train.to_numpy(dtype=float), "features")
+        targets = _fit_scaler(train[["pm25"]].to_numpy(dtype=float), "PM2.5")
+        return cls(inputs, targets)
 
-def fit_train_scalers(
-    values: pd.DataFrame,
-    trusted_mask: pd.DataFrame,
-    train_start: pd.Timestamp,
-    train_end_exclusive: pd.Timestamp,
-) -> ScalerBundle:
-    """Khớp scaler trên các hàng đáng tin cậy trong miền train đã duy nhất và lập lại chỉ mục.
+    def transform(self, X_raw, y_raw):
+        _validate_windows(X_raw, y_raw)
+        X = _transform_array(X_raw, self.x, len(FEATURES))
+        y = _transform_array(y_raw, self.y, 1)
+        return X, y
 
-    Trả về scaler feature và target. Thiếu dữ liệu để khớp hoặc sai thứ tự feature
-    sẽ gây ValueError. Các hàng giữ lại và lịch sử đã bù không được dùng để khớp.
-    """
-    if tuple(values.columns) != FEATURES or tuple(trusted_mask.columns) != FEATURES:
-        raise ValueError("Unexpected feature order")
-    selected = (values.index >= train_start) & (values.index < train_end_exclusive)
-    train_values = values.loc[selected]
-    train_mask = trusted_mask.loc[selected]
-    complete = train_mask.all(axis=1) & np.isfinite(train_values).all(axis=1)
-    pm_valid = train_mask["pm25"] & np.isfinite(train_values["pm25"])
-    if not complete.any() or not pm_valid.any():
-        raise ValueError("No trusted training values for scaler")
-    # Khớp trên hàng thay vì các cửa sổ chồng lấn giúp tránh gán trọng số lặp lại.
-    feature_scaler = StandardScaler().fit(train_values.loc[complete].to_numpy())
-    target_scaler = StandardScaler().fit(
-        train_values.loc[pm_valid, ["pm25"]].to_numpy()
-    )
-    return ScalerBundle(feature_scaler, target_scaler)
+    def inverse_targets(self, y_scaled):
+        """Preserve vector/matrix shape and return finite PM2.5 in ug/m3."""
+        values = np.asarray(y_scaled, dtype=np.float64)
+        if values.size == 0 or not np.isfinite(values).all():
+            raise ValueError(
+                "Predictions must be nonempty and finite before inverse scaling"
+            )
+        with np.errstate(over="ignore", invalid="ignore"):
+            physical = self.y.inverse_transform(values.reshape(-1, 1)).reshape(
+                values.shape
+            )
+        if not np.isfinite(physical).all():
+            raise ValueError("Inverse scaling overflow, physical PM2.5 must be finite")
+        return physical
+
+    def save(self, path: Path):
+        write_json(
+            path,
+            {
+                "feature_order": list(self.features),
+                "target": "pm25",
+                "units": "ug/m3",
+                "x": _scaler_parameters(self.x),
+                "y": _scaler_parameters(self.y),
+            },
+        )
+
+    @classmethod
+    def load(cls, path: Path):
+        raw = read_json(path)
+        _validate_metadata(raw)
+        inputs = _read_scaler(raw, "x", len(FEATURES))
+        targets = _read_scaler(raw, "y", 1)
+        return cls(inputs, targets)
 
 
-def transform_windows(
-    X_raw: np.ndarray, y_raw: np.ndarray, scalers: ScalerBundle
-) -> tuple[np.ndarray, np.ndarray]:
-    """Biến đổi lịch sử 24x3 và 24 target, từ chối đầu ra không hợp lệ hoặc không hữu hạn."""
+def _select_train_values(values, bounds):
+    selected = (values.index >= bounds.start) & (values.index < bounds.end_exclusive)
+    return values.loc[selected, list(FEATURES)]
+
+
+def _fit_scaler(values, name):
+    # StandardScaler ignores NaN per column, infinity is not a missing observation.
+    if np.isinf(values).any() or not np.isfinite(values).any(axis=0).all():
+        raise ValueError(f"train: {name} need valid finite observations to fit scalers")
+    return StandardScaler().fit(values)
+
+
+def _validate_windows(X, y):
+    if X.shape != (len(X), LOOKBACK_HOURS, len(FEATURES)):
+        raise ValueError("Expected X shape (N,24,3)")
+    if y.shape != (len(X), HORIZON_HOURS):
+        raise ValueError("Expected y shape (N,4)")
+    if not np.isfinite(X).all() or not np.isfinite(y).all():
+        raise ValueError("Cannot scale missing or invalid windows")
+
+
+def _transform_array(values, scaler, columns):
+    with np.errstate(over="ignore", invalid="ignore"):
+        scaled = scaler.transform(values.reshape(-1, columns))
+        scaled = scaled.reshape(values.shape).astype(np.float32)
+    if not np.isfinite(scaled).all():
+        raise ValueError("Scaled windows exceed finite float32 range")
+    return scaled
+
+
+def _scaler_parameters(scaler):
+    return {"mean": scaler.mean_.tolist(), "scale": scaler.scale_.tolist()}
+
+
+def _validate_metadata(raw):
     if (
-        scalers.features != FEATURES
-        or X_raw.shape[1:] != (LOOKBACK_HOURS, FEATURE_COUNT)
-        or y_raw.shape != (len(X_raw), HORIZON_HOURS)
+        raw.get("feature_order") != list(FEATURES)
+        or raw.get("target") != "pm25"
+        or raw.get("units") != "ug/m3"
     ):
-        raise ValueError("Invalid tensor shape or feature order")
-    scaled_x = (
-        scalers.x.transform(X_raw.reshape(-1, FEATURE_COUNT))
-        .reshape(X_raw.shape)
-        .astype(np.float32)
-    )
-    scaled_y = (
-        scalers.y.transform(y_raw.reshape(-1, 1))
-        .reshape(y_raw.shape)
-        .astype(np.float32)
-    )
-    if not np.isfinite(scaled_x).all() or not np.isfinite(scaled_y).all():
-        raise ValueError("Non-finite tensors")
-    return scaled_x, scaled_y
+        raise ValueError("Invalid scaler feature order or target")
 
 
-def inverse_targets(y_scaled: np.ndarray, scalers: ScalerBundle) -> np.ndarray:
-    """Trả target về đơn vị PM2.5 thực với hình dạng ban đầu."""
-    targets = np.asarray(y_scaled)
-    return scalers.y.inverse_transform(targets.reshape(-1, 1)).reshape(targets.shape)
+def _read_scaler(raw, name, columns):
+    section = raw.get(name, {})
+    if not isinstance(section, dict):
+        raise ValueError(f"Invalid {name} scaler")
+    mean = _read_statistics(section, "mean", columns, name)
+    scale = _read_statistics(section, "scale", columns, name)
+    if np.any(scale <= 0):
+        raise ValueError(f"Invalid {name} scaler scale, expected positive values")
+    scaler = StandardScaler()
+    scaler.mean_, scaler.scale_ = mean, scale
+    scaler.n_features_in_ = columns
+    return scaler
 
 
-def save_scalers(scalers: ScalerBundle, path: Path) -> None:
-    """Ghi các tham số scaler thành JSON tại đường dẫn do bên gọi quản lý."""
-
-    def attributes(scaler):
-        return {
-            name: np.asarray(getattr(scaler, name)).tolist()
-            for name in ("mean_", "var_", "scale_", "n_samples_seen_")
-        }
-
-    data = {
-        "features": list(scalers.features),
-        "sklearn": sklearn.__version__,
-        "x": attributes(scalers.x),
-        "y": attributes(scalers.y),
-    }
-    Path(path).write_text(json.dumps(data, indent=2), encoding="utf-8")
+def _read_statistics(section, field, columns, name):
+    numbers = section.get(field)
+    if (
+        not isinstance(numbers, list)
+        or len(numbers) != columns
+        or any(type(number) not in (int, float) for number in numbers)
+    ):
+        raise ValueError(
+            f"Invalid {name} scaler {field}, expected {columns} JSON numbers"
+        )
+    values = np.asarray(numbers, dtype=float)
+    if not np.isfinite(values).all():
+        raise ValueError(f"Invalid {name} scaler {field}, expected finite values")
+    return values
 
 
-def load_scalers(path: Path) -> ScalerBundle:
-    """Khôi phục scaler từ JSON và từ chối thứ tự feature không tương thích."""
-    data = json.loads(Path(path).read_text(encoding="utf-8"))
-    if tuple(data["features"]) != FEATURES:
-        raise ValueError("Unexpected feature order")
+# Existing scripts use these entry points, the class owns the implementation.
+def transform_windows(X_raw, y_raw, scalers):
+    return scalers.transform(X_raw, y_raw)
 
-    def restore(attributes):
-        scaler = StandardScaler()
-        for name, value in attributes.items():
-            setattr(scaler, name, np.asarray(value))
-        scaler.n_features_in_ = len(scaler.mean_)
-        return scaler
 
-    return ScalerBundle(restore(data["x"]), restore(data["y"]))
+def inverse_targets(y_scaled, scalers):
+    return scalers.inverse_targets(y_scaled)
+
+
+def save_scalers(scalers, path):
+    scalers.save(path)
+
+
+def load_scalers(path):
+    return ScalerBundle.load(path)
