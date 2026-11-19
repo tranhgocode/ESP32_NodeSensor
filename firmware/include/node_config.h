@@ -11,7 +11,7 @@
 #define NODE_DEFAULT_ADDR 0x02U             /* địa chỉ mặc định của node */
 #define NODE_GATEWAY_ADDR 0x00U             /* địa chỉ gateway */
 #ifndef NODE_MEASUREMENT_INTERVAL_MS
-#define NODE_MEASUREMENT_INTERVAL_MS 10000U /* chu kỳ giữa các lần wakeup */
+#define NODE_MEASUREMENT_INTERVAL_MS 60000U /* chu kỳ giữa các lần wakeup */
 #endif
 #define NODE_TX_TIMEOUT_MS 3000U            /* thời gian chờ phát */
 #define NODE_ACK_TIMEOUT_MS 1000U           /* thời gian chờ ACK */
@@ -36,7 +36,7 @@
 
 /* 0 bỏ đo PM2.5 và giữ SET LOW, 1 bật HM3301 và gửi DATA 8 byte. */
 #ifndef NODE_HM3301_ENABLED
-#define NODE_HM3301_ENABLED 0
+#define NODE_HM3301_ENABLED 1
 #endif
 #if NODE_HM3301_ENABLED != 0 && NODE_HM3301_ENABLED != 1
 #error "NODE_HM3301_ENABLED must be 0 or 1"

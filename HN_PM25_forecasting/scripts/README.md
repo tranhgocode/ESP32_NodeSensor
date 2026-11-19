@@ -2,7 +2,7 @@
 
 ## 1. Tổng quan
 
-Thư mục `scripts/` có ba script chính. Chạy theo thứ tự **chuẩn bị dữ liệu → huấn luyện → đánh giá**. Mô hình dùng dữ liệu 24 giờ gần nhất để dự báo PM2.5 trong 4 giờ tiếp theo.
+Quy trình trong `scripts/` đi từ **chuẩn bị dữ liệu → huấn luyện → đánh giá → xuất mô hình**. Mô hình dùng dữ liệu 24 giờ gần nhất để dự báo PM2.5 trong 4 giờ tiếp theo.
 
 Mở PowerShell tại thư mục gốc của kho mã. Chuyển vào thư mục dự án và cài thư viện nếu cần.
 
@@ -59,3 +59,27 @@ python -m scripts.evaluate --checkpoint runs/lstm/lstm-demo/seed_42/best.keras -
 | `--checkpoint` | Chọn `best.keras` hoặc thư mục chứa tệp này để vẽ biểu đồ test.                                |
 | `--output-dir` | Dùng với `--checkpoint` để chọn nơi lưu biểu đồ. Mặc định là `visualizations/`.                |
 | `--common`     | Mặc định là `configs/common.yaml`. Nếu dùng tệp khác khi huấn luyện, truyền cùng tệp ở đây.    |
+
+## 5. Xuất mô hình TFLite với `export.py`
+
+Chạy từ thư mục `HN_PM25_forecasting`. Lệnh đầu xuất bản `float32` vào `runs/exports/`. Lệnh thứ hai xuất bản `int8` vào thư mục riêng để giữ cả hai kết quả.
+
+```powershell
+python -m scripts.export --checkpoint runs/conv1d_gru/conv1d-gru-test/seed_42
+python -m scripts.export --checkpoint runs/conv1d_gru/conv1d-gru-test/seed_42 --quantization int8 --output-dir runs/exports/conv1d-gru-seed42-int8
+```
+
+| Tham số | Cách dùng |
+| --- | --- |
+| `--checkpoint` | Bắt buộc. Đường dẫn tới tệp `.keras` hoặc thư mục chứa `best.keras`. |
+| `--output-dir` | Mặc định là `runs/exports/`. Chọn thư mục mới hoặc thư mục trống. Nếu thư mục đích đã có nội dung, script báo lỗi để tránh ghi đè. |
+| `--quantization` | Chọn `float32` (mặc định) hoặc `int8`. Bản `int8` dùng tối đa 200 cửa sổ train để hiệu chuẩn, với đầu vào và đầu ra kiểu `int8`. |
+| `--processed-dir` | Chỉ định thư mục dữ liệu gốc, ví dụ `data/processed/pm25_24x4_complete_v1`. Mặc định lấy `processed_dir` từ `run_metadata.json` cạnh checkpoint. Truyền tham số này nếu đã di chuyển dữ liệu hoặc checkpoint thiếu thông tin đường dẫn. |
+
+Thư mục xuất chứa ba tệp.
+
+- `model.tflite` chứa mô hình đã chuyển đổi.
+- `scalers.json` chứa tham số dùng để chuẩn hóa đầu vào và đổi dự báo về `µg/m³`.
+- `model_info.json` ghi kiểu và kích thước tensor, danh sách toán tử, sai lệch giữa dự báo Keras và TFLite theo từng giờ trên tập validation, cùng `scale` và `zero_point` cho bản `int8`.
+
+Khi tích hợp trên ESP32-S3, chuẩn bị đầu vào `[1, 24, 3]` gồm 24 giờ theo thứ tự `pm25`, `temperature`, `humidity`. Đầu ra `[1, 4]` tương ứng với bốn giờ tiếp theo. Với bản `int8`, lượng tử hóa dữ liệu sau khi chuẩn hóa và giải lượng tử đầu ra trước khi đổi về `µg/m³`.
