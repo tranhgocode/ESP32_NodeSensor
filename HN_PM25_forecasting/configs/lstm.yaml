@@ -1,0 +1,10 @@
+model:
+  name: lstm
+  input_shape: [null, 3]  # [time_steps, features], channels follow common.yaml data.features
+
+  layers:
+    - {type: LSTM, units: 64, return_sequences: true}
+    - {type: Dropout, rate: 0.2}
+    - {type: LSTM, units: 32, return_sequences: false}
+    - {type: Dropout, rate: 0.2}
+    - {type: Dense, units: 4}

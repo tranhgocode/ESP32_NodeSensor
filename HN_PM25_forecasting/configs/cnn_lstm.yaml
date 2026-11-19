@@ -1,0 +1,19 @@
+model:
+  name: cnn_lstm
+  input_shape: [null, 3]  # [timesteps, temperature/humidity/PM2.5 channels]
+
+  layers:
+    - {type: Conv1D, name: conv1_1, filters: 64, kernel_size: 3, padding: same, activation: relu, kernel_regularizer: {class_name: L2, config: {l2: 0.0001}}}
+    - {type: Conv1D, name: conv1_2, filters: 64, kernel_size: 3, padding: same, activation: relu, kernel_regularizer: {class_name: L2, config: {l2: 0.0001}}}
+    - {type: MaxPooling1D, name: pool1, pool_size: 2}
+    - {type: BatchNormalization, name: bn1}
+
+    - {type: Conv1D, name: conv2_1, filters: 128, kernel_size: 3, padding: same, activation: relu, kernel_regularizer: {class_name: L2, config: {l2: 0.0001}}}
+    - {type: Conv1D, name: conv2_2, filters: 128, kernel_size: 3, padding: same, activation: relu, kernel_regularizer: {class_name: L2, config: {l2: 0.0001}}}
+    - {type: MaxPooling1D, name: pool2, pool_size: 2}
+    - {type: BatchNormalization, name: bn2}
+
+    - {type: LSTM, name: lstm, units: 128, return_sequences: false, dropout: 0.2, recurrent_dropout: 0.0}
+    - {type: Dense, name: dense1, units: 128, activation: relu}
+    - {type: Dropout, name: dropout, rate: 0.5}
+    - {type: Dense, name: pm25_forecast, units: 4, activation: linear}
