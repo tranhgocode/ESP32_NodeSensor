@@ -29,23 +29,36 @@ dependencies:
     - esp32s3
     version: 1.2.0
   esp-idf-lib/esp_idf_lib_helpers:
-    component_hash: 689853bb8993434f9556af0f2816e808bf77b5d22100144b21f3519993daf237
+    component_hash: 2b46288d7500846fe9f5ca7bfa2597067de9e38d94fb0d6ff834639ab02734ba
     dependencies: []
     source:
       registry_url: https://components.espressif.com
       type: service
-    targets:
-    - esp32
-    - esp32c2
-    - esp32c3
-    - esp32c5
-    - esp32c6
-    - esp32c61
-    - esp32h2
-    - esp32p4
-    - esp32s2
-    - esp32s3
-    version: 1.4.0
+    version: 1.4.2
+  espressif/esp-nn:
+    component_hash: 55d167047662a4dc5cc67981581d5e5a98bdca5be80253921dbc526130ff5317
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.1'
+    source:
+      registry_url: https://components.espressif.com
+      type: service
+    version: 1.5.0
+  espressif/esp-tflite-micro:
+    component_hash: 6509fe52baded3968ac4d636c9c932fdfda2f86cf3d2f4f7919cf650ad3b8adc
+    dependencies:
+    - name: espressif/esp-nn
+      registry_url: https://components.espressif.com
+      require: private
+      version: '>=1.4.2'
+    - name: idf
+      require: private
+      version: '>=5.1'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.4.3
   idf:
     source:
       type: idf
@@ -53,7 +66,8 @@ dependencies:
 direct_dependencies:
 - dernasherbrezon/sx127x
 - esp-idf-lib/dht
+- espressif/esp-tflite-micro
 - idf
-manifest_hash: a6f664d3f0133d32e81c33bedb437b5900595db0632dfdb2f6f206c48daf18d4
+manifest_hash: cde8d887f03ed06cb19fabebbd843ca9b8cd8625e0f474244f00b395232d4a08
 target: esp32s3
 version: 3.0.0
