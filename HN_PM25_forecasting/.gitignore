@@ -13,5 +13,4 @@ tests/.fixture_*/
 *.pyo
 *.pyd
 /tests/
-visualizations/tables/models_*/
-visualizations/figures/models_*/
+visualizations/*
