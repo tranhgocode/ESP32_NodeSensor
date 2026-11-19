@@ -34,7 +34,6 @@ class SplitForecast(NamedTuple):
     history: np.ndarray
     actual: np.ndarray
     predicted: np.ndarray
-    predicted_scaled: np.ndarray
     origins: np.ndarray
     target_times: np.ndarray
 
@@ -85,7 +84,9 @@ def _predict_split(checkpoint, processed, split, config) -> SplitForecast:
         model = tf.keras.models.load_model(checkpoint, compile=False)
         scaled = predict_batches(model, data.X)
     if scaled.shape != data.y.shape:
-        raise ValueError(f"Checkpoint predicted shape {scaled.shape}, expected {data.y.shape}")
+        raise ValueError(
+            f"Checkpoint predicted shape {scaled.shape}, expected {data.y.shape}"
+        )
 
     origins = windows.origins.as_unit("ns").asi8
     offsets = np.arange(1, HORIZON_HOURS + 1) * NANOSECONDS_PER_HOUR
@@ -93,7 +94,6 @@ def _predict_split(checkpoint, processed, split, config) -> SplitForecast:
         windows.X_raw,
         windows.y_raw,
         inverse_targets(scaled, scalers),
-        scaled,
         origins,
         origins[:, None] + offsets,
     )
@@ -172,6 +172,7 @@ def _validate_run(run, split, selection_path):
         if selection_path is None:
             raise ValueError("Test evaluation requires frozen validation selection")
         validate_locked_run(run, selection_path)
+        return meta
     if sha256(run / CHECKPOINT_NAME) != meta.get("checkpoint_sha256") or sha256(
         run / "config_snapshot.json"
     ) != meta.get("config_sha256"):
@@ -219,7 +220,6 @@ def _save_run_evaluation(run, split, forecast, metrics):
     try:
         np.savez_compressed(
             stage / "predictions.npz",
-            y_pred_scaled=forecast.predicted_scaled,
             y_pred_raw=forecast.predicted,
             y_true_raw=forecast.actual,
             origins=forecast.origins,
@@ -244,22 +244,32 @@ def _parse_args(argv):
         "--checkpoint", type=Path, help="best.keras file or its parent directory"
     )
     parser.add_argument(
-        "--split", choices=("validation", "test"), help="Required with --run-dir"
-    )
-    parser.add_argument("--selection", type=Path)
-    parser.add_argument(
-        "--output-dir", type=Path, help="Checkpoint figures, defaults to visualizations/"
+        "--split", choices=("validation", "test"), help="Required with --run-dir only"
     )
     parser.add_argument(
-        "--common", type=Path, default=DEFAULT_COMMON,
+        "--selection", type=Path, help="Required with --run-dir --split test"
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        help="Checkpoint figures, defaults to visualizations/",
+    )
+    parser.add_argument(
+        "--common",
+        type=Path,
+        default=DEFAULT_COMMON,
         help="YAML with dataset and source CSV paths",
     )
     args = parser.parse_args(argv)
     if args.checkpoint is not None:
-        if args.split == "validation" or args.selection is not None:
-            parser.error("--checkpoint uses the test split directly; use --run-dir for comparison")
+        if args.split is not None or args.selection is not None:
+            parser.error(
+                "--checkpoint selects test automatically. Remove --split and --selection."
+            )
     elif args.split is None or args.output_dir is not None:
         parser.error("--run-dir requires --split; --output-dir is for --checkpoint")
+    elif args.split == "validation" and args.selection is not None:
+        parser.error("--selection is only for --run-dir --split test")
     return parser, args
 
 
