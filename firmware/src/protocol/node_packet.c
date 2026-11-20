@@ -2,7 +2,7 @@
 
 #include "protocol/crc16.h"
 
-/* Ràng buộc này thuộc schema gói, tách khỏi bố cục byte và kiểm tra CRC. */
+/** Kiểm tra định dạng theo loại gói. DATA chỉ nhận 6, 8 hoặc 16 byte dữ liệu. */
 static node_result_t validate_packet_shape(const node_packet_t *packet)
 {
     switch (packet->type)
@@ -15,7 +15,9 @@ static node_result_t validate_packet_shape(const node_packet_t *packet)
             break;
 
         case NODE_PACKET_TYPE_DATA:
-            if (packet->len != NODE_DATA_PAYLOAD_SIZE && packet->len != NODE_DATA_PM25_PAYLOAD_SIZE)
+            if (packet->len != NODE_DATA_PAYLOAD_SIZE &&
+                packet->len != NODE_DATA_PM25_PAYLOAD_SIZE &&
+                packet->len != NODE_DATA_FORECAST_PAYLOAD_SIZE)
             {
                 return NODE_INVALID_FRAME;
             }
@@ -29,7 +31,7 @@ static node_result_t validate_packet_shape(const node_packet_t *packet)
             break;
 
         case NODE_PACKET_TYPE_ERROR:
-            /* Kiểm tra len trước làm cho lần đọc payload[0] an toàn. */
+            /* Kiểm tra độ dài trước khi đọc mã ERROR. */
             if (packet->len != 1U || packet->payload[0] < 1U || packet->payload[0] > 4U)
             {
                 return NODE_INVALID_FRAME;
@@ -54,7 +56,7 @@ node_result_t node_packet_encode(const node_packet_t *packet,
 
     if (written != NULL)
     {
-        /* Tránh để caller hiểu nhầm là có một khung hoàn chỉnh khi gặp lỗi. */
+        /* Độ dài bằng 0 nếu không tạo được khung. */
         *written = 0U;
     }
 
@@ -69,7 +71,6 @@ node_result_t node_packet_encode(const node_packet_t *packet,
     }
 
     frame_size = (size_t)packet->len + 9U;
-    /* Kiểm tra sức chứa trước khi ghi bất kỳ byte khung nào qua out. */
     if (capacity < frame_size)
     {
         return NODE_BUFFER_TOO_SMALL;
@@ -89,7 +90,7 @@ node_result_t node_packet_encode(const node_packet_t *packet,
     out[5U + packet->len] = (uint8_t)(packet->seq >> 8);
     out[6U + packet->len] = (uint8_t)packet->seq;
 
-    /* CRC tính từ type đến seq_lo, hai byte CRC không tự tham gia phép tính. */
+    /* CRC bao phủ từ Type đến byte thấp của Seq. */
     crc = crc16_ccitt_false(out, frame_size - 2U);
     out[7U + packet->len] = (uint8_t)(crc >> 8);
     out[8U + packet->len] = (uint8_t)crc;
@@ -119,7 +120,7 @@ node_result_t node_packet_decode(const uint8_t *frame,
         return NODE_INVALID_FRAME;
     }
 
-    /* Giới hạn khung trước khi dùng len field để tính offset hoặc chép payload. */
+    /* Chặn giá trị Len vượt sức chứa trước khi tính vị trí các trường. */
     payload_len = frame[4];
     if (payload_len > NODE_PACKET_MAX_PAYLOAD_SIZE)
     {
@@ -132,7 +133,6 @@ node_result_t node_packet_decode(const uint8_t *frame,
         return NODE_INVALID_FRAME;
     }
 
-    /* Chỉ đọc các offset seq và payload sau khi độ dài tổng đã khớp len field. */
     decoded.type = frame[0];
     decoded.src = frame[1];
     decoded.dest = frame[2];
@@ -150,7 +150,7 @@ node_result_t node_packet_decode(const uint8_t *frame,
         return NODE_INVALID_FRAME;
     }
 
-    /* Giữ thứ tự ưu tiên hiện tại: sai schema trả INVALID_FRAME trước khi CRC. */
+    /* Ưu tiên báo lỗi định dạng trước lỗi CRC. */
     received_crc = (uint16_t)(((uint16_t)frame[len - 2U] << 8) | frame[len - 1U]);
     calculated_crc = crc16_ccitt_false(frame, len - 2U);
     if (received_crc != calculated_crc)

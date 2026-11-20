@@ -9,41 +9,50 @@
 #define NODE_BATTERY_MV_UNAVAILABLE UINT16_MAX
 #define NODE_PM25_UNAVAILABLE UINT16_MAX
 
-/* DATA8 giữ sáu byte nhiệt độ, độ ẩm, pin và thêm PM2.5 Atmospheric ở byte 6..7.
- * PM2.5 dùng đơn vị ug/m3, byte cao trước, UINT16_MAX biểu thị unavailable.
- * Caller cấp ít nhất tám byte, đối số NULL trả lỗi và giữ nguyên output. */
+/**
+ * Mã hóa DATA16 bằng cách nối bốn dự báo PM2.5 sau DATA8.
+ * @param sample Mẫu nhiệt độ và độ ẩm.
+ * @param battery_mv Điện áp pin theo mV hoặc NODE_BATTERY_MV_UNAVAILABLE.
+ * @param pm25_ug_m3 PM2.5 đo được hoặc NODE_PM25_UNAVAILABLE.
+ * @param forecast Bốn giá trị +1 đến +4 bước, theo µg/m³, ghi byte cao trước.
+ * @param out Bộ đệm có ít nhất 16 byte ghi được.
+ * @return NODE_OK hoặc NODE_INVALID_ARG nếu thiếu con trỏ. Lỗi không sửa out.
+ */
+node_result_t node_payload_encode_data_forecast(
+    const node_measurement_t *sample, uint16_t battery_mv, uint16_t pm25_ug_m3,
+    const uint16_t forecast[NODE_PM25_FORECAST_COUNT],
+    uint8_t out[NODE_DATA_FORECAST_PAYLOAD_SIZE]);
+
+/**
+ * Mã hóa DATA8 với PM2.5 ở byte 6 và 7, theo µg/m³, byte cao trước.
+ * @param sample Mẫu nhiệt độ và độ ẩm.
+ * @param battery_mv Điện áp pin theo mV hoặc NODE_BATTERY_MV_UNAVAILABLE.
+ * @param pm25_ug_m3 PM2.5 môi trường. UINT16_MAX là thiếu, 0 hợp lệ.
+ * @param out Bộ đệm có ít nhất 8 byte ghi được.
+ * @return NODE_OK hoặc NODE_INVALID_ARG nếu thiếu con trỏ. Lỗi không sửa out.
+ */
 node_result_t node_payload_encode_data_pm25(const node_measurement_t *sample,
                                             uint16_t battery_mv, uint16_t pm25_ug_m3,
                                             uint8_t out[NODE_DATA_PM25_PAYLOAD_SIZE]);
 
 /**
- * Mã hóa mẫu đo và điện áp pin thành payload DATA cố định 6 byte.
- *
- * Hai số x10 được ghi theo byte cao trước: nhiệt độ có dấu ở byte 0..1 dưới
- * dạng 16 bit, độ ẩm không dấu ở byte 2..3, điện áp pin mV ở byte 4..5.
- * UINT16_MAX biểu thị điện áp không có dữ liệu. Đây chỉ là chuyển đổi định dạng,
- * hàm không kiểm tra miền vật lý của phép đo.
- *
- * @param sample Mẫu nguồn có hai trường x10 hợp lệ trong kiểu của chúng.
- * @param battery_mv Điện áp pin trước chia áp, hoặc NODE_BATTERY_MV_UNAVAILABLE.
- * @param out Bộ đệm đích do bên gọi sở hữu, cần ít nhất 6 byte ghi được.
- * @return NODE_OK, NODE_INVALID_ARG nếu sample hoặc out là NULL. Khi lỗi,
- *         out không bị thay đổi.
- * @pre Nếu sample khác NULL, sample phải trỏ tới một node_measurement_t đọc
- *      được, nếu out khác NULL, out phải có 6 byte ghi được.
+ * Mã hóa DATA6: nhiệt độ ×10 có dấu, độ ẩm ×10 không dấu và pin theo mV.
+ * Mỗi trường chiếm hai byte, ghi byte cao trước.
+ * @param sample Mẫu nhiệt độ và độ ẩm cần mã hóa.
+ * @param battery_mv Điện áp pin trước chia áp hoặc NODE_BATTERY_MV_UNAVAILABLE.
+ * @param out Bộ đệm có ít nhất 6 byte ghi được.
+ * @return NODE_OK hoặc NODE_INVALID_ARG nếu thiếu con trỏ. Lỗi không sửa out.
  */
 node_result_t node_payload_encode_data(const node_measurement_t *sample,
                                        uint16_t battery_mv,
                                        uint8_t out[NODE_DATA_PAYLOAD_SIZE]);
 
 /**
- * Mã hóa mã lỗi thành payload ERROR một byte.
- *
- * @param error_code Mã giao thức trong khoảng 1..4.
- * @param out Bộ đệm đích do bên gọi sở hữu, cần ít nhất 1 byte ghi được.
- * @return NODE_OK, NODE_INVALID_ARG nếu out là NULL, NODE_OUT_OF_RANGE nếu mã
- *         nằm ngoài 1..4. Khi lỗi, out không bị thay đổi.
- * @pre Nếu out khác NULL, out phải có ít nhất một byte ghi được.
+ * Mã hóa mã lỗi thành một byte.
+ * @param error_code Mã ERROR trong khoảng 1..4.
+ * @param out Bộ đệm có ít nhất một byte ghi được.
+ * @return NODE_OK, NODE_INVALID_ARG nếu out là NULL hoặc NODE_OUT_OF_RANGE
+ *         nếu mã nằm ngoài miền hợp lệ. Lỗi không sửa out.
  */
 node_result_t node_payload_encode_error(uint8_t error_code, uint8_t out[1]);
 
