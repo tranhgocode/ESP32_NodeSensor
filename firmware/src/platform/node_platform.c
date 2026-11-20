@@ -7,6 +7,7 @@
 #include "board_config.h"
 #include "esp_log.h"
 #include "esp_timer.h"
+#include "forecast/pm25_forecast.h"
 #include "indicator/status_led.h"
 #include "power/node_power.h"
 #include "radio/node_radio.h"
@@ -28,7 +29,7 @@ typedef struct
     size_t len;
 } trace_event_t;
 
-/* Chỉ task ứng dụng sở hữu, không ghi từ ISR hoặc task driver khác. */
+/* Bộ đệm nhật ký thuộc tác vụ ứng dụng. ISR không ghi vào đây. */
 static trace_event_t trace_events[TRACE_EVENT_LIMIT];
 static size_t trace_count;
 static uint32_t trace_dropped;
@@ -53,6 +54,7 @@ static const char *result_name(node_result_t result)
     }
 }
 
+/** Sao chép nội dung và khung vào RAM để in sau. Bộ đệm đầy thì đếm sự kiện bị bỏ. */
 static void platform_trace(const char *message, node_result_t result,
                             const uint8_t *frame, size_t len)
 {
@@ -88,11 +90,12 @@ static node_result_t platform_radio_send(const uint8_t *frame, size_t len,
                                          uint32_t timeout_ms, int64_t *tx_done_us)
 {
     const node_result_t result = node_radio_send(frame, len, timeout_ms, tx_done_us);
-    /* Send đã chuyển sang RX trước khi trả OK, ở đây chỉ copy trace vào RAM. */
+    /* Radio đã bật RX khi gửi thành công. Chỉ lưu kết quả trong RAM để không chậm ACK. */
     platform_trace("TX completed", result, NULL, 0);
     return result;
 }
 
+/** Tắt LED và chờ console truyền xong trước Light-sleep. Hủy ngủ nếu có lỗi. */
 static node_result_t platform_sleep_ms(uint32_t duration_ms)
 {
     const node_result_t result = status_led_off();
@@ -100,7 +103,6 @@ static node_result_t platform_sleep_ms(uint32_t duration_ms)
     {
         return result;
     }
-    /* Đẩy hết stdio rồi chờ console truyền trước khi Light-sleep ngắt USB. */
     if (fflush(stdout) != 0 || fsync(STDOUT_FILENO) != 0)
     {
         return NODE_IO_ERROR;
@@ -125,6 +127,9 @@ static const node_io_t PLATFORM_IO = {
     .encode_packet = node_packet_encode,
     .now_us = esp_timer_get_time,
     .trace = platform_trace,
+#if NODE_PM25_FORECAST_ENABLED
+    .forecast_sample = pm25_forecast_sample,
+#endif
 };
 
 const node_io_t *node_platform_io(void)
@@ -167,6 +172,7 @@ void node_platform_log_config(const node_config_t *config)
              (unsigned)NODE_RADIO_EXPLICIT_HEADER_ENABLED, (unsigned)NODE_RADIO_INVERT_IQ_ENABLED);
 }
 
+/** In khung dạng hex. Chỉ diễn giải nội dung nếu giải mã và kiểm tra CRC thành công. */
 static void log_frame(const trace_event_t *entry)
 {
     static const char HEX[] = "0123456789ABCDEF";
@@ -203,7 +209,7 @@ static void log_frame(const trace_event_t *entry)
         {
             ESP_LOGI(TAG, "DATA battery_mv=%u", (unsigned)battery_mv);
         }
-        if (packet.len == NODE_DATA_PM25_PAYLOAD_SIZE)
+        if (packet.len >= NODE_DATA_PM25_PAYLOAD_SIZE)
         {
             const uint16_t pm25 = ((uint16_t)packet.payload[6] << 8) | packet.payload[7];
             if (pm25 == NODE_PM25_UNAVAILABLE)

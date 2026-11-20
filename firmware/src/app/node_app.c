@@ -8,11 +8,13 @@
 #define NODE_FRAME_OVERHEAD 9U
 #define MICROSECONDS_PER_MILLISECOND INT64_C(1000)
 
+/** HM3301 khả dụng khi được bật và đã khởi tạo thành công. */
 static bool hm3301_available(const node_context_t *ctx)
 {
     return ctx->hm3301_enabled && ctx->hm3301_init_result == NODE_OK;
 }
 
+/** Yêu cầu HM3301 ngủ nếu đang bật. Lỗi chỉ được ghi vào nhật ký. */
 static void sleep_hm3301(const node_context_t *ctx, const node_io_t *io)
 {
     if (ctx->hm3301_enabled)
@@ -25,6 +27,10 @@ static void sleep_hm3301(const node_context_t *ctx, const node_io_t *io)
     }
 }
 
+/**
+ * Chọn mốc đo tiếp theo và chừa thời gian làm nóng nếu HM3301 khả dụng.
+ * Bỏ qua mốc đã lỡ và chỉ ghi due_us khi thành công.
+ */
 static node_result_t select_measurement_due(const node_context_t *ctx,
                                             const node_config_t *config,
                                             const node_io_t *io, int64_t *due_us)
@@ -42,7 +48,6 @@ static node_result_t select_measurement_due(const node_context_t *ctx,
     {
         return NODE_OUT_OF_RANGE;
     }
-    /* Chọn mốc còn đủ warmup trên lịch cũ, không phát bù các mốc đã lỡ. */
     const int64_t remaining = now + preparation - previous;
     int64_t slots = remaining / interval + (remaining % interval != 0);
     if (slots == 0)
@@ -57,6 +62,10 @@ static node_result_t select_measurement_due(const node_context_t *ctx,
     return NODE_OK;
 }
 
+/**
+ * Ngủ đến mốc tuyệt đối, tiếp tục chờ nếu thức sớm.
+ * Trả lỗi nếu đồng hồ không tiến sau một lần ngủ.
+ */
 static node_result_t sleep_until(const node_io_t *io, int64_t deadline_us)
 {
     int64_t now = io->now_us();
@@ -67,7 +76,7 @@ static node_result_t sleep_until(const node_io_t *io, int64_t deadline_us)
     while (now < deadline_us)
     {
         const int64_t remaining = deadline_us - now;
-        /* Làm tròn lên để không rút ngắn thời gian chờ còn lại dưới một ms. */
+        /* Làm tròn lên để không thức trước mốc vì phần lẻ dưới 1 ms. */
         const int64_t rounded_ms = remaining / MICROSECONDS_PER_MILLISECOND +
                                    (remaining % MICROSECONDS_PER_MILLISECOND != 0);
         const uint32_t sleep_ms = rounded_ms > UINT32_MAX ? UINT32_MAX : (uint32_t)rounded_ms;
@@ -86,6 +95,10 @@ static node_result_t sleep_until(const node_io_t *io, int64_t deadline_us)
     return NODE_OK;
 }
 
+/**
+ * Chờ đến mốc đo và đủ thời gian làm nóng HM3301.
+ * Nếu không đánh thức được HM3301, vẫn chờ đến mốc đo và bỏ qua PM2.5.
+ */
 static node_result_t wait_for_measurement(const node_context_t *ctx,
                                           const node_config_t *config,
                                           const node_io_t *io, int64_t due_us,
@@ -120,12 +133,13 @@ static node_result_t wait_for_measurement(const node_context_t *ctx,
     {
         return NODE_IO_ERROR;
     }
-    /* SET có thể lên HIGH trễ, luôn ưu tiên đủ warmup thay vì đọc sớm cho kịp mốc. */
+    /* SET có thể lên mức cao muộn, nên chờ đủ thời gian làm nóng thực tế. */
     result = sleep_until(io, ready_at_us > due_us ? ready_at_us : due_us);
     *hm_ready = result == NODE_OK;
     return result;
 }
 
+/** Kiểm tra cấu hình và các hàm I/O bắt buộc. Hàm dự báo có thể để NULL. */
 static bool valid_arguments(const node_context_t *ctx, const node_config_t *config,
                              const node_io_t *io)
 {
@@ -145,6 +159,7 @@ static bool valid_arguments(const node_context_t *ctx, const node_config_t *conf
            io->trace != NULL;
 }
 
+/** Mã hóa khung và kiểm tra độ dài trước khi giao cho radio. */
 static node_result_t encode_frame(const node_io_t *io, const node_packet_t *packet,
                                    uint8_t *frame, size_t *len)
 {
@@ -154,7 +169,6 @@ static node_result_t encode_frame(const node_io_t *io, const node_packet_t *pack
     {
         return result;
     }
-    /* Không để callback trả OK với độ dài sai rồi chuyển buffer lỗi tới radio. */
     if (*len != NODE_FRAME_OVERHEAD + packet->len || *len > NODE_PACKET_MAX_SIZE)
     {
         return NODE_ENCODE_FAILED;
@@ -162,6 +176,7 @@ static node_result_t encode_frame(const node_io_t *io, const node_packet_t *pack
     return NODE_OK;
 }
 
+/** Đọc pin một lần. Lỗi khởi tạo hoặc đọc trả NODE_BATTERY_MV_UNAVAILABLE. */
 static uint16_t read_battery_mv(const node_context_t *ctx, const node_io_t *io)
 {
     if (ctx->battery_init_result != NODE_OK)
@@ -178,8 +193,43 @@ static uint16_t read_battery_mv(const node_context_t *ctx, const node_io_t *io)
     return millivolts;
 }
 
-static node_result_t prepare_frame(node_context_t *ctx, const node_io_t *io,
-                                    bool hm_ready, uint8_t *frame, size_t *len)
+/** Đọc một mẫu nhiệt độ và độ ẩm. Trả 0 khi thành công hoặc mã ERROR tương ứng. */
+static uint8_t read_temperature_humidity(const node_context_t *ctx, const node_io_t *io,
+                                         node_measurement_t *sample)
+{
+    if (ctx->sensor_init_result != NODE_OK)
+    {
+        return NODE_ERROR_SENSOR_INIT;
+    }
+    const node_result_t result = io->sensor_read(sample);
+    if (result == NODE_OK)
+    {
+        return 0;
+    }
+    io->trace("Sensor read failed", result, NULL, 0);
+    return result == NODE_OUT_OF_RANGE ? NODE_ERROR_SENSOR_RANGE : NODE_ERROR_SENSOR_READ;
+}
+
+/** Đọc PM2.5 một lần khi HM3301 đã sẵn sàng. Lỗi trả NODE_PM25_UNAVAILABLE. */
+static uint16_t read_pm25(const node_io_t *io)
+{
+    uint16_t pm25 = 0;
+    const node_result_t result = io->hm3301_read_pm25(&pm25);
+    if (result == NODE_OK)
+    {
+        return pm25;
+    }
+    io->trace("HM3301 read failed", result, NULL, 0);
+    return NODE_PM25_UNAVAILABLE;
+}
+
+/**
+ * Thu thập mẫu và tạo tối đa một khung DATA hoặc ERROR.
+ * Yêu cầu HM3301 ngủ trước khi dự báo. Nếu bật dự báo, vẫn chuyển mẫu
+ * của lượt sang bộ dự báo khi phép đo nhiệt độ và độ ẩm lỗi.
+ */
+static node_result_t prepare_frame(const node_context_t *ctx, const node_io_t *io,
+                                   bool hm_ready, uint8_t *frame, size_t *len)
 {
     node_packet_t packet = {
         .type = NODE_PACKET_TYPE_DATA,
@@ -190,56 +240,52 @@ static node_result_t prepare_frame(node_context_t *ctx, const node_io_t *io,
         .len = ctx->hm3301_enabled ? NODE_DATA_PM25_PAYLOAD_SIZE : NODE_DATA_PAYLOAD_SIZE,
     };
     const uint16_t battery_mv = read_battery_mv(ctx, io);
-    bool hm_slept = false;
-    uint8_t error = NODE_ERROR_SENSOR_INIT;
-    if (ctx->sensor_init_result == NODE_OK)
+    const bool collect_forecast = ctx->hm3301_enabled && io->forecast_sample != NULL;
+    node_forecast_sample_t reading = {
+        .due_since_init_us = ctx->last_measurement_due_us - ctx->measurement_epoch_us,
+        .measurement_interval_ms = ctx->measurement_interval_ms,
+        .pm25_ug_m3 = NODE_PM25_UNAVAILABLE,
+    };
+    uint8_t error = read_temperature_humidity(ctx, io, &reading.temp_hum);
+    reading.temp_hum_valid = error == 0;
+    if (hm_ready && (reading.temp_hum_valid || collect_forecast))
     {
-        node_measurement_t sample = {0};
-        const node_result_t read_result = io->sensor_read(&sample);
-        if (read_result == NODE_OK)
+        reading.pm25_ug_m3 = read_pm25(io);
+    }
+    sleep_hm3301(ctx, io);
+
+    uint16_t forecast[NODE_PM25_FORECAST_COUNT];
+    const bool forecast_ready = collect_forecast && io->forecast_sample(&reading, forecast);
+    if (reading.temp_hum_valid)
+    {
+        node_result_t result;
+        if (forecast_ready)
         {
-            uint16_t pm25 = NODE_PM25_UNAVAILABLE;
-            if (hm_ready)
-            {
-                uint16_t fresh_pm25 = 0;
-                const node_result_t pm_result = io->hm3301_read_pm25(&fresh_pm25);
-                if (pm_result == NODE_OK)
-                {
-                    pm25 = fresh_pm25;
-                }
-                else
-                {
-                    io->trace("HM3301 read failed", pm_result, NULL, 0);
-                }
-            }
-            sleep_hm3301(ctx, io);
-            hm_slept = true;
-            node_result_t result = ctx->hm3301_enabled ?
-                node_payload_encode_data_pm25(&sample, battery_mv, pm25, packet.payload) :
-                node_payload_encode_data(&sample, battery_mv, packet.payload);
-            if (result == NODE_OK)
-            {
-                result = encode_frame(io, &packet, frame, len);
-            }
-            if (result == NODE_OK)
-            {
-                return NODE_OK;
-            }
-            io->trace("DATA encoding failed", result, NULL, 0);
-            error = NODE_ERROR_DATA_ENCODING;
+            packet.len = NODE_DATA_FORECAST_PAYLOAD_SIZE;
+            result = node_payload_encode_data_forecast(&reading.temp_hum, battery_mv,
+                                                       reading.pm25_ug_m3, forecast, packet.payload);
+        }
+        else if (ctx->hm3301_enabled)
+        {
+            result = node_payload_encode_data_pm25(&reading.temp_hum, battery_mv,
+                                                   reading.pm25_ug_m3, packet.payload);
         }
         else
         {
-            io->trace("Sensor read failed", read_result, NULL, 0);
-            error = read_result == NODE_OUT_OF_RANGE ?
-                NODE_ERROR_SENSOR_RANGE : NODE_ERROR_SENSOR_READ;
+            result = node_payload_encode_data(&reading.temp_hum, battery_mv, packet.payload);
         }
+        if (result == NODE_OK)
+        {
+            result = encode_frame(io, &packet, frame, len);
+        }
+        if (result == NODE_OK)
+        {
+            return NODE_OK;
+        }
+        io->trace("DATA encoding failed", result, NULL, 0);
+        error = NODE_ERROR_DATA_ENCODING;
     }
 
-    if (!hm_slept)
-    {
-        sleep_hm3301(ctx, io);
-    }
     packet.type = NODE_PACKET_TYPE_ERROR;
     packet.len = 1;
     node_result_t result = node_payload_encode_error(error, packet.payload);
@@ -250,6 +296,7 @@ static node_result_t prepare_frame(node_context_t *ctx, const node_io_t *io,
     return result;
 }
 
+/** Chờ ACK khớp trước hạn. Gói sai không kéo dài thời gian chờ. */
 static node_result_t wait_for_ack(const node_context_t *ctx, const node_io_t *io)
 {
     for (;;)
@@ -278,7 +325,7 @@ static node_result_t wait_for_ack(const node_context_t *ctx, const node_io_t *io
         }
         node_packet_t packet;
         const node_result_t decoded = node_packet_decode(frame, len, &packet);
-        /* Đọc clock sau decode, thời gian xử lý cũng nằm trong cửa sổ ACK. */
+        /* Tính cả thời gian giải mã vào cửa sổ ACK. */
         const int64_t accepted_us = io->now_us();
         if (decoded == NODE_OK && node_state_accept_ack(ctx, &packet, accepted_us))
         {
@@ -329,6 +376,7 @@ node_result_t node_app_init(node_context_t *ctx, const node_config_t *config,
         return NODE_IO_ERROR;
     }
     ctx->last_measurement_due_us = now;
+    ctx->measurement_epoch_us = now;
     ctx->app_initialized = true;
     return NODE_OK;
 }
@@ -390,7 +438,7 @@ node_result_t node_app_run_cycle(node_context_t *ctx, const node_config_t *confi
         }
     }
 
-    /* Một đường kết thúc cho mọi lượt đã bắt đầu, không retry hoặc giữ mẫu cũ. */
+    /* Mọi lượt đã bắt đầu đều đi qua bước dọn dẹp này để ID và Seq chỉ tăng một lần. */
     const node_result_t sleep_result = io->radio_sleep();
     if (sleep_result != NODE_OK)
     {
