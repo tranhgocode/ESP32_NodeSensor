@@ -1,2 +1,5 @@
-# Keep the ESP-IDF image header consistent with platformio.ini.
+# Đồng bộ dung lượng flash trong ảnh ESP-IDF với platformio.ini.
 CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+
+# Chừa thêm ngăn xếp cho TFLite Micro chạy trong app_main.
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=8192
