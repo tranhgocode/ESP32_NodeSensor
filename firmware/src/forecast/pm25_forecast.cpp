@@ -18,8 +18,9 @@ namespace
 constexpr const char *TAG = "pm25_forecast";
 constexpr int64_t US_PER_MS = 1000;
 constexpr float SENSOR_FIXED_POINT_SCALE = 10.0f;
-constexpr size_t MODEL_OPERATOR_COUNT = 14;
-constexpr size_t ARENA_BYTES = 64U * 1024U;
+constexpr size_t MODEL_OPERATOR_COUNT = 9;
+/* Chừa bộ nhớ lập kế hoạch tensor và vùng nhớ cố định của các toán tử ESP-NN. */
+constexpr size_t ARENA_BYTES = 160U * 1024U;
 constexpr uint16_t MAX_WIRE_PM25 = NODE_PM25_UNAVAILABLE - 1;
 
 enum class LogEvent
@@ -43,19 +44,14 @@ int64_t elapsed_us;
 bool register_model_ops(tflite::MicroMutableOpResolver<MODEL_OPERATOR_COUNT> &resolver)
 {
     return resolver.AddReshape() == kTfLiteOk &&
-           resolver.AddConcatenation() == kTfLiteOk &&
-           resolver.AddWhile() == kTfLiteOk &&
-           resolver.AddStridedSlice() == kTfLiteOk &&
+           resolver.AddUnpack() == kTfLiteOk &&
            resolver.AddFullyConnected() == kTfLiteOk &&
-           resolver.AddLess() == kTfLiteOk &&
-           resolver.AddLogicalAnd() == kTfLiteOk &&
-           resolver.AddGather() == kTfLiteOk &&
-           resolver.AddAdd() == kTfLiteOk &&
            resolver.AddSplit() == kTfLiteOk &&
            resolver.AddLogistic() == kTfLiteOk &&
-           resolver.AddMul() == kTfLiteOk &&
            resolver.AddTanh() == kTfLiteOk &&
-           resolver.AddSlice() == kTfLiteOk;
+           resolver.AddMul() == kTfLiteOk &&
+           resolver.AddAdd() == kTfLiteOk &&
+           resolver.AddPack() == kTfLiteOk;
 }
 
 /** Kiểm tra vùng dữ liệu, kiểu float32 và kích thước của tensor. */
