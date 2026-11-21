@@ -11,11 +11,10 @@ extern "C" {
 void pm25_forecast_init(void);
 
 /**
- * Gom mẫu vào các cửa sổ 24 hàng tính từ cuối khởi tạo.
- * Mỗi hàng ứng với một giờ ở chế độ thường hoặc một mốc đo ở chế độ demo.
+ * Chạy suy luận khi đủ 24 lần đo có cả PM2.5, nhiệt độ và độ ẩm hợp lệ.
  * @param sample Mẫu theo mốc đo. Phải khác NULL.
  * @param out Mảng đích có chỗ cho bốn giá trị PM2.5 theo µg/m³,
- *            tương ứng 1 đến 4 giờ tiếp theo, hoặc 1 đến 4 mốc đo ở chế độ demo.
+ *            theo thứ tự bốn bước đầu ra của mô hình.
  * @return true nếu có đủ bốn dự báo hợp lệ. Chỉ dùng out khi trả true.
  */
 bool pm25_forecast_sample(const node_forecast_sample_t *sample,
