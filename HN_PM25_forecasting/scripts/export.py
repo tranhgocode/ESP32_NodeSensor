@@ -88,24 +88,17 @@ def _calibration_windows(processed_dir: Path) -> np.ndarray:
     return windows[indices]
 
 
-def _inference_model(tf, model, *, unroll: bool):
-    """Remove recurrent training state and expand loops for calibration."""
+def _inference_model(tf, model):
+    """Remove recurrent training state and expand loops for TFLite Micro."""
     recurrent_types = (tf.keras.layers.LSTM, tf.keras.layers.GRU)
-    needs_clone = any(
-        isinstance(layer, recurrent_types)
-        and (unroll or layer.dropout or layer.recurrent_dropout)
-        for layer in model.layers
-    )
-    if not needs_clone:
+    if not any(isinstance(layer, recurrent_types) for layer in model.layers):
         return model
 
     def clone_layer(layer):
         config = layer.get_config()
         if isinstance(layer, recurrent_types):
             # Dropout is inactive at inference but can still trace RNG state updates.
-            config.update(dropout=0.0, recurrent_dropout=0.0)
-            if unroll:
-                config["unroll"] = True
+            config.update(dropout=0.0, recurrent_dropout=0.0, unroll=True)
         return type(layer).from_config(config)
 
     export_model = tf.keras.models.clone_model(
@@ -177,17 +170,33 @@ def _convert_model(
     )
 
     try:
-        inference_model = _inference_model(tf, model, unroll=calibration is not None)
-        # Freeze Keras weights so recurrent subgraphs can also be calibrated.
+        inference_model = _inference_model(tf, model)
+        # Freeze Keras weights for conversion and calibration.
         frozen = convert_variables_to_constants_v2(_fixed_forecast(tf, inference_model))
         directory = saved_model_dir.as_posix()
         tf.saved_model.save(
             tf.Module(), directory, signatures={"serving_default": frozen}
         )
-        return _convert_saved_model(tf, directory, calibration)
+        flatbuffer = _convert_saved_model(tf, directory, calibration)
+        _require_static_tensor_shapes(flatbuffer)
+        return flatbuffer
     except (ConverterError, tf.errors.OpError, RuntimeError, ValueError) as exc:
         mode = "float32" if calibration is None else "int8"
         raise RuntimeError(f"TFLite {mode} conversion failed: {exc}") from exc
+
+
+def _require_static_tensor_shapes(flatbuffer: bytes) -> None:
+    from tensorflow.lite.python import schema_py_generated as schema
+
+    model = schema.Model.GetRootAs(flatbuffer, 0)
+    for subgraph_index in range(model.SubgraphsLength()):
+        subgraph = model.Subgraphs(subgraph_index)
+        for tensor_index in range(subgraph.TensorsLength()):
+            tensor = subgraph.Tensors(tensor_index)
+            signature = (tensor.ShapeSignature(i) for i in range(tensor.ShapeSignatureLength()))
+            if any(dimension < 0 for dimension in signature):
+                name = tensor.Name().decode()
+                raise ValueError(f"Dynamic tensor in TFLite Micro model: {name}")
 
 
 def _require_integer_tensors(flatbuffer: bytes) -> None:
