@@ -37,13 +37,15 @@ Lệnh mẫu huấn luyện LSTM tối đa 10 epoch. Mô hình tốt nhất đư
 python -m scripts.train --common configs/common.yaml --model lstm --name lstm-demo --seed 42 --epochs 10
 ```
 
-| Tham số                                  | Cách dùng                                                                                                  |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `--common`                               | Bắt buộc. Tệp cấu hình chung, ví dụ `configs/common.yaml`.                                                 |
-| `--model`                                | Bắt buộc. Chọn `lstm`, `cnn_lstm`, `conv1d_gru`, `se_lstm` hoặc đường dẫn YAML của mô hình.                |
-| `--name`                                 | Bắt buộc. Tên lượt chạy. Chọn tên mới nếu đã chạy ví dụ này và dùng tên đó ở mục 4.                        |
-| `--seed`                                 | Chọn seed cho một lượt huấn luyện. Nếu bỏ qua, dùng danh sách seed trong YAML.                             |
-| `--epochs`, `--batch-size`, `--patience` | Số epoch tối đa, số mẫu mỗi batch và số epoch chờ trước khi dừng sớm. Nếu bỏ qua, dùng giá trị trong YAML. |
+| Tham số                                  | Cách dùng                                                                                                             |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `--common`                               | Bắt buộc. Tệp cấu hình chung, ví dụ `configs/common.yaml`.                                                            |
+| `--model`                                | Bắt buộc. Chọn `lstm`, `cnn_lstm`, `conv1d_gru`, `se_lstm` hoặc đường dẫn YAML của mô hình.                           |
+| `--name`                                 | Tên lượt chạy. Lưu vào `<output_dir>/<model>/<name>/`. Chọn một trong `--name` và `--run_dir`.                        |
+| `--run_dir`                              | Thư mục lượt chạy, chứa các thư mục `seed_...`. Khi có `--output_dir`, dùng đường dẫn tương đối bên trong thư mục đó. |
+| `--output_dir`                           | Thư mục gốc lưu kết quả. Khi dùng `--name`, mặc định là `runs/` của dự án.                                            |
+| `--seed`                                 | Chọn seed cho một lượt huấn luyện. Nếu bỏ qua, dùng danh sách seed trong YAML.                                        |
+| `--epochs`, `--batch-size`, `--patience` | Số epoch tối đa, số mẫu mỗi batch và số epoch chờ trước khi dừng sớm. Nếu bỏ qua, dùng giá trị trong YAML.            |
 
 ## 4. Đánh giá với `evaluate.py`
 

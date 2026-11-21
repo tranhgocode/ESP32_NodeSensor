@@ -3,6 +3,7 @@
 import argparse
 from dataclasses import asdict
 import json
+import os
 from pathlib import Path
 import platform
 from time import perf_counter
@@ -158,17 +159,46 @@ def _train_seed(run, seed, model_config, training, train, validation):
     return history, model.count_params(), perf_counter() - started
 
 
+def _run_parent(
+    project_root: Path,
+    model_name: str,
+    run_id: str | None,
+    run_dir: Path | None,
+    output_dir: Path | None,
+) -> Path:
+    """Resolve the experiment directory that contains the per-seed folders."""
+    if (run_id is None) == (run_dir is None):
+        raise ValueError("Choose exactly one of --name and --run_dir")
+
+    root = project_root / "runs"
+    if output_dir is not None:
+        root = Path(os.path.abspath(output_dir.expanduser()))
+    if run_dir is None:
+        return root / model_name / validate_run_id(run_id)
+
+    path = run_dir.expanduser()
+    if output_dir is None:
+        return Path(os.path.abspath(path))
+
+    # A custom run path must stay inside the output root when both are set.
+    parent = Path(os.path.abspath(root / path))
+    if path.anchor or parent == root or not parent.is_relative_to(root):
+        raise ValueError("--run_dir must be relative and inside --output_dir")
+    return parent
+
+
 def train_experiment(
     common_path: Path,
     model_path: Path,
-    run_id: str,
+    run_id: str | None = None,
     *,
+    run_dir: Path | None = None,
+    output_dir: Path | None = None,
     seed: int | None = None,
     epochs: int | None = None,
     batch_size: int | None = None,
     patience: int | None = None,
 ) -> list[Path]:
-    name = validate_run_id(run_id)
     common_path, model_path = Path(common_path).resolve(), Path(model_path).resolve()
     prep, config, defaults = load_experiment_config(common_path, model_path)
     overrides = {
@@ -183,7 +213,7 @@ def train_experiment(
     )
     training = _load_training_config(settings)
 
-    parent = common_path.parent.parent / "runs" / config.name / name
+    parent = _run_parent(common_path.parent.parent, config.name, run_id, run_dir, output_dir)
     if parent.resolve() != parent:
         raise ValueError(f"Redirected run directory: {parent}")
     seed_runs = {seed: parent / f"seed_{seed}" for seed in training.seeds}
@@ -198,7 +228,8 @@ def train_experiment(
     arguments = {
         "common": str(common_path),
         "model": str(model_path),
-        "name": name,
+        "name": parent.name,
+        "run_dir": str(parent),
         **settings,
     }
     print(json.dumps(arguments, indent=2), flush=True)
@@ -239,8 +270,15 @@ def main(argv=None):
         "--common", type=Path, required=True, help="Common YAML configuration"
     )
     parser.add_argument("--model", required=True, help="Model name or YAML path")
+    destination = parser.add_mutually_exclusive_group(required=True)
+    destination.add_argument("--name", help="Run name under <output_dir>/<model>")
+    destination.add_argument(
+        "--run_dir", "--run-dir", type=Path,
+        help="Experiment directory, relative to --output_dir when provided",
+    )
     parser.add_argument(
-        "--name", required=True, help="Output folder name under runs/<model>"
+        "--output_dir", "--output-dir", type=Path,
+        help="Root directory for training outputs, defaults to the project's runs directory with --name",
     )
     parser.add_argument("--seed", type=int, help="Seed for a single training run")
     parser.add_argument("--epochs", type=int, help="Maximum number of epochs")
@@ -258,6 +296,8 @@ def main(argv=None):
             args.common,
             model_path,
             args.name,
+            run_dir=args.run_dir,
+            output_dir=args.output_dir,
             seed=args.seed,
             epochs=args.epochs,
             batch_size=args.batch_size,
