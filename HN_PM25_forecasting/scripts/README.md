@@ -25,6 +25,9 @@ python -m scripts.prepare_data --input data/Hanoi_aqi/hanoi_aqi_ml_ready_fixed.c
 | `--output`                                     | Bắt buộc. Thư mục mới để lưu bộ dữ liệu. Nếu đổi đường dẫn, cập nhật `paths.processed` trong `configs/common.yaml`. |
 | `--train-split`, `--val-split`, `--test-split` | Tỷ lệ chia, mặc định lần lượt là `0.70`, `0.15`, `0.15`. Tổng phải bằng `1`.                                        |
 | `--shuffle`                                    | Thêm cờ này nếu muốn xáo trộn thứ tự mẫu trong tập train.                                                           |
+| `--max-interpolation-gap-hours`                 | Số giờ thiếu liên tiếp tối đa để nội suy tuyến tính, mặc định `3`. Đặt `0` để chỉ dùng số đo hợp lệ gần nhất trước đó. |
+
+Script bù từng cột PM2.5, nhiệt độ và độ ẩm trong cửa sổ đầu vào 24 giờ. Với khoảng thiếu trong ngưỡng, nội suy dùng hai số đo ở hai đầu khi cả hai đã có tại thời điểm dự báo. Khoảng thiếu dài hơn hoặc chưa có số đo ở đầu bên phải dùng số đo hợp lệ gần nhất trước khoảng thiếu. Nếu chưa từng có số đo cho cột đó, script bỏ cửa sổ còn thiếu. Bốn nhãn PM2.5 luôn lấy từ số đo thật. Ngưỡng được lưu trong `summary.json` để tái tạo cửa sổ khi đánh giá.
 
 ## 3. Huấn luyện với `train.py`
 

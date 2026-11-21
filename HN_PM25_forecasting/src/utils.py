@@ -34,6 +34,7 @@ class PreparationConfig:
     timezone: str = "UTC"
     start: str | None = None
     end_exclusive: str | None = None
+    max_interpolation_gap_hours: int | None = None
 
     def __post_init__(self):
         for name in ("input_csv", "processed"):
@@ -98,6 +99,9 @@ def _validate_preparation_options(config):
         or config.seed < 0
     ):
         raise ValueError("shuffle must be boolean and seed a nonnegative integer")
+    gap = config.max_interpolation_gap_hours
+    if gap is not None and (type(gap) is not int or gap < 0):
+        raise ValueError("max_interpolation_gap_hours must be a nonnegative integer")
     start, end = parse_time_bound(config.start), parse_time_bound(config.end_exclusive)
     if start is not None and end is not None and start >= end:
         raise ValueError("Start must precede exclusive end")

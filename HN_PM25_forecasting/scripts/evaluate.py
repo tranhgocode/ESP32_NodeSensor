@@ -10,7 +10,7 @@ import uuid
 import numpy as np
 
 from src.baselines import persistence_forecast, seasonal_naive_forecast
-from src.data_pipeline import DataPreparationPipeline, load_prepared_split
+from src.data_pipeline import DataPreparationPipeline, history_gap_limit, load_prepared_split
 from src.metrics import compute_forecast_metrics
 from src.preprocessing import load_scalers, inverse_targets
 from src.utils import (
@@ -60,6 +60,9 @@ def _restore_windows(config, processed, split, data, scalers):
             train_fraction=fractions["train"],
             validation_fraction=fractions["val"],
             test_fraction=fractions["test"],
+            shuffle=summary["shuffle_train"],
+            seed=summary["seed"],
+            max_interpolation_gap_hours=history_gap_limit(summary["missing_policy"]),
         )
     )
     hourly = pipeline.read_csv()

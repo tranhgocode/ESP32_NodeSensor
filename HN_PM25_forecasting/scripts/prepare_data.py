@@ -6,6 +6,8 @@ import sys
 from src.data_pipeline import run_preparation
 from src.utils import PreparationConfig
 
+DEFAULT_MAX_INTERPOLATION_GAP_HOURS = 3
+
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -15,6 +17,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--val-split", type=float, default=0.15, help="Validation fraction, default .15")
     parser.add_argument("--test-split", type=float, default=0.15, help="Test fraction, default .15")
     parser.add_argument("--shuffle", action="store_true", help="Shuffle train samples only, seed 42")
+    parser.add_argument(
+        "--max-interpolation-gap-hours",
+        type=int,
+        default=DEFAULT_MAX_INTERPOLATION_GAP_HOURS,
+        help=(
+            "Maximum consecutive missing history hours to interpolate "
+            "(default: %(default)s, 0: forward fill only)"
+        ),
+    )
     
     args = parser.parse_args(argv)
     
@@ -26,6 +37,7 @@ def main(argv: list[str] | None = None) -> int:
             validation_fraction=args.val_split,
             test_fraction=args.test_split,
             shuffle=args.shuffle,
+            max_interpolation_gap_hours=args.max_interpolation_gap_hours,
         )
         result = run_preparation(config)
     except (ValueError, OSError) as exc:

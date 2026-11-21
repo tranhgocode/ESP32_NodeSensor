@@ -1,4 +1,4 @@
-"""Train-only scaling for 24-hour histories and four hourly PM2.5 targets."""
+"""History gap filling and train-only scaling for PM2.5 forecasts."""
 
 from dataclasses import dataclass
 from pathlib import Path
@@ -6,6 +6,34 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from .utils import FEATURES, HORIZON_HOURS, LOOKBACK_HOURS, read_json, write_json
+
+
+@dataclass(frozen=True)
+class HistoryGapFiller:
+    forward_filled: np.ndarray
+    interpolated: np.ndarray
+    available_at: np.ndarray
+
+    @classmethod
+    def from_observations(cls, values: pd.DataFrame, max_gap_hours: int):
+        offsets = np.broadcast_to(np.arange(len(values))[:, None], values.shape)
+        observed = pd.DataFrame(offsets).where(values.notna().to_numpy())
+        right = observed.bfill()
+        gap_hours = right - observed.ffill() - 1
+        short_gap = (gap_hours > 0) & (gap_hours <= max_gap_hours)
+        return cls(
+            values.ffill().to_numpy(dtype=float),
+            values.interpolate(method="linear", limit_area="inside").to_numpy(dtype=float),
+            right.where(short_gap).to_numpy(dtype=float),
+        )
+
+    def window(self, rows: slice, origin: int) -> np.ndarray:
+        # The right endpoint must already have been observed at the forecast origin.
+        return np.where(
+            self.available_at[rows] <= origin,
+            self.interpolated[rows],
+            self.forward_filled[rows],
+        )
 
 
 @dataclass

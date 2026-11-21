@@ -14,7 +14,7 @@ import uuid
 from zipfile import BadZipFile
 import numpy as np
 import pandas as pd
-from .preprocessing import ScalerBundle
+from .preprocessing import HistoryGapFiller, ScalerBundle
 from .utils import (
     FEATURES,
     HORIZON_HOURS,
@@ -28,6 +28,8 @@ from .utils import (
 
 SPLITS = ("train", "val", "test")
 SCHEMA_VERSION = "pm25_24x4_complete_v1"
+DROP_MISSING_POLICY = "drop_incomplete_window"
+FILL_HISTORY_METHOD = "linear_then_forward_fill"
 
 
 @dataclass
@@ -166,13 +168,20 @@ class DataPreparationPipeline:
     def build_windows(self, data: HourlyData, bounds) -> dict[str, WindowSet]:
         values = data.values.to_numpy(dtype=float)
         index = data.values.index
+        gap_limit = self.config.max_interpolation_gap_hours
+        filler = (
+            HistoryGapFiller.from_observations(data.values, gap_limit)
+            if gap_limit is not None
+            else None
+        )
         rows = {name: [] for name in SPLITS}
         # Each i is a forecast origin, history includes i, labels start at i+1.
         for i in range(LOOKBACK_HOURS - 1, len(values) - HORIZON_HOURS):
             split = self.label_split(index[i], bounds)
             if split is None:
                 continue
-            X = values[i - LOOKBACK_HOURS + 1 : i + 1]
+            history = slice(i - LOOKBACK_HOURS + 1, i + 1)
+            X = values[history] if filler is None else filler.window(history, i)
             y = values[i + 1 : i + HORIZON_HOURS + 1, 0]
             if np.isfinite(X).all() and np.isfinite(y).all():
                 rows[split].append((X, y, index[i]))
@@ -247,6 +256,11 @@ class PreparedDatasetStore:
             arrays[f"X_{name}"], arrays[f"y_{name}"] = scalers.transform(
                 window.X_raw, window.y_raw
             )
+        gap_limit = config.max_interpolation_gap_hours
+        missing_policy = (
+            DROP_MISSING_POLICY if gap_limit is None
+            else {"method": FILL_HISTORY_METHOD, "max_gap_hours": gap_limit}
+        )
         summary = {
             "schema_version": SCHEMA_VERSION,
             "feature_order": list(FEATURES),
@@ -267,7 +281,7 @@ class PreparedDatasetStore:
             "counts": {name: len(windows[name].y_raw) for name in SPLITS},
             "shuffle_train": config.shuffle,
             "seed": config.seed,
-            "missing_policy": "drop_incomplete_window",
+            "missing_policy": missing_policy,
             "input": data.summary,
             "reports_dir": str(config.reports),
         }
@@ -314,10 +328,10 @@ class PreparedDatasetStore:
             "lookback": 24,
             "horizon": 4,
             "timezone": "UTC",
-            "missing_policy": "drop_incomplete_window",
         }
         if any(summary.get(key) != value for key, value in expected.items()):
             raise ValueError("summary.json violates the 24 -> 4 dataset contract")
+        history_gap_limit(summary.get("missing_policy"))
         self._validate_summary(summary)
         filename = summary.get("archive")
         percentage = r"[0-9]+(?:[.][0-9]+)?"
@@ -436,6 +450,17 @@ class PreparedDatasetStore:
             count = counts.get(split)
             if type(count) is not int or not 0 < count <= right - left:
                 raise ValueError(f"Invalid or empty sample count for {split}")
+
+
+def history_gap_limit(policy: object) -> int | None:
+    """Read the threshold stored with a prepared dataset, including older datasets."""
+    if policy == DROP_MISSING_POLICY:
+        return None
+    if isinstance(policy, dict) and policy.get("method") == FILL_HISTORY_METHOD:
+        limit = policy.get("max_gap_hours")
+        if type(limit) is int and limit >= 0:
+            return limit
+    raise ValueError("Invalid missing_policy in summary.json")
 
 
 def load_prepared_split(output_dir: Path, split: str) -> DatasetSplit:
