@@ -1,7 +1,7 @@
 # Input and output paths, relative to the HN_PM25_forecasting project root.
 paths:
-  input_csv: data/Hanoi_aqi/hanoi_aqi_ml_ready_fixed.csv  # raw data
-  processed: data/processed/pm25_24x4_complete_v1  # processed data
+  input_csv: data/Hanoi_aqi_2/aqi_HN_2025_feb-jun.csv # raw data
+  processed: data/processed/pm25_24x4_hanoi_aqi # processed data
 
   # Output directories
   reports: data/processed/visualizations/pm25_24x4_complete_v1
@@ -11,28 +11,28 @@ data:
   timezone: UTC
   end_exclusive: "2025-11-22T00:00:00Z"
   features: [pm25, temperature, humidity]
-  lookback: 24    # past hours input
-  horizon: 4      # forecast hours output
+  lookback: 24 # past hours input
+  horizon: 4 # forecast hours output
 
 # Handling of missing data
 missing:
-  method: drop_window  # discard incomplete histories or labels, no interpolation
+  method: drop_window # discard incomplete histories or labels, no interpolation
 
 # Data split, [train, val, test] = [70,15,15]
 split:
   train_ratio: 0.70
   validation_ratio: 0.15
   test_ratio: 0.15
-  shuffle: false  # preparation, shuffle train samples only after temporal splitting
+  shuffle: false # preparation, shuffle train samples only after temporal splitting
 
 # Settings for each independent model training run.
 training:
   seeds: [42]
-  epochs: 150
-  batch_size: 32
+  epochs: 100
+  batch_size: 16
   learning_rate: 0.001
   amsgrad: true
-  patience: 15            # stop after 15 epochs without changes val loss
+  patience: 15 # stop after 15 epochs without changes val loss
   shuffle: false
   loss: mae
   device: cpu
