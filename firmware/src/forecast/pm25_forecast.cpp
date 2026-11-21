@@ -47,7 +47,7 @@ int64_t elapsed_us;
 bool register_model_ops(tflite::MicroMutableOpResolver<MODEL_OPERATOR_COUNT> &resolver)
 {
     return resolver.AddReshape() == kTfLiteOk &&
-           resolver.AddConv2D() == kTfLiteOk &&
+           resolver.AddConcatenation() == kTfLiteOk &&
            resolver.AddWhile() == kTfLiteOk &&
            resolver.AddStridedSlice() == kTfLiteOk &&
            resolver.AddFullyConnected() == kTfLiteOk &&
@@ -59,7 +59,7 @@ bool register_model_ops(tflite::MicroMutableOpResolver<MODEL_OPERATOR_COUNT> &re
            resolver.AddLogistic() == kTfLiteOk &&
            resolver.AddMul() == kTfLiteOk &&
            resolver.AddTanh() == kTfLiteOk &&
-           resolver.AddSub() == kTfLiteOk;
+           resolver.AddSlice() == kTfLiteOk;
 }
 
 /** Kiểm tra vùng dữ liệu, kiểu float32 và kích thước của tensor. */
