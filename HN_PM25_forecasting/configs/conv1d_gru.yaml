@@ -3,13 +3,15 @@ model:
   input_shape: [null, 3]  # [time_steps, features], channels follow common.yaml data.features
 
   layers:
-    - {type: Conv1D, filters: 128, kernel_size: 3, dilation_rate: 1,  padding: same, activation: relu}
-    - {type: Conv1D, filters: 64,  kernel_size: 3, dilation_rate: 2,  padding: same, activation: relu}
-    - {type: Conv1D, filters: 32,  kernel_size: 3, dilation_rate: 4,  padding: same, activation: relu}
-    - {type: Conv1D, filters: 16,  kernel_size: 3, dilation_rate: 8,  padding: same, activation: relu}
-    - {type: Conv1D, filters: 8,   kernel_size: 3, dilation_rate: 16, padding: same, activation: relu}
+    # Each block adds a dilated depthwise branch to a 1x1 projection.
+    - {type: ResidualDepthwiseConv1D, name: block1, filters: 128, dilation_rate: 1, dropout: 0.2}
+    - {type: ResidualDepthwiseConv1D, name: block2, filters: 64, dilation_rate: 2, dropout: 0.2}
+    - {type: ResidualDepthwiseConv1D, name: block3, filters: 32, dilation_rate: 4, dropout: 0.2}
+    - {type: ResidualDepthwiseConv1D, name: block4, filters: 16, dilation_rate: 8, dropout: 0.2}
+    - {type: ResidualDepthwiseConv1D, name: block5, filters: 8, dilation_rate: 16, dropout: 0.2}
 
-    - {type: GRU, units: 64}
-    - {type: Dense, units: 256, activation: relu}
-    - {type: Dropout, rate: 0.2}
-    - {type: Dense, units: 4}
+    # Apply Dense to each time step before the GRU reads the full window.
+    - {type: Dense, name: head_dense, units: 256, activation: relu}
+    - {type: GRU, name: gru, units: 4}
+    - {type: Dropout, name: head_dropout, rate: 0.2}
+    - {type: Dense, name: forecast, units: 4}
