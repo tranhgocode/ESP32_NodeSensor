@@ -8,6 +8,7 @@ from pathlib import Path
 import platform
 from time import perf_counter
 
+import keras
 from matplotlib.figure import Figure
 from matplotlib.ticker import MaxNLocator
 import numpy as np
@@ -36,19 +37,19 @@ def cpu_scope():
 
 def _compile_model(model, training):
     loss_class = (
-        tf.keras.losses.MeanSquaredError
+        keras.losses.MeanSquaredError
         if training.loss == "mse"
-        else tf.keras.losses.MeanAbsoluteError
+        else keras.losses.MeanAbsoluteError
     )
     model.compile(
         loss=loss_class(),
-        optimizer=tf.keras.optimizers.Adam(
+        optimizer=keras.optimizers.Adam(
             learning_rate=training.learning_rate,
             amsgrad=training.amsgrad,
         ),
         metrics=[
-            tf.keras.metrics.MeanAbsoluteError(name="mae"),
-            tf.keras.metrics.RootMeanSquaredError(name="rmse"),
+            keras.metrics.MeanAbsoluteError(name="mae"),
+            keras.metrics.RootMeanSquaredError(name="rmse"),
         ],
     )
 
@@ -62,19 +63,19 @@ def _batches(split, batch_size):
 
 def _fit_model(model, checkpoint, training, train, validation):
     callbacks = [
-        tf.keras.callbacks.ModelCheckpoint(
+        keras.callbacks.ModelCheckpoint(
             checkpoint,
             monitor="val_loss",
             mode="min",
             save_best_only=True,
         ),
-        tf.keras.callbacks.EarlyStopping(
+        keras.callbacks.EarlyStopping(
             monitor="val_loss",
             mode="min",
             patience=training.patience,
             restore_best_weights=True,
         ),
-        tf.keras.callbacks.TerminateOnNaN(),
+        keras.callbacks.TerminateOnNaN(),
     ]
     return model.fit(
         _batches(train, training.batch_size),
@@ -148,8 +149,8 @@ def _save_run(run, history, snapshot, metadata):
 def _train_seed(run, seed, model_config, training, train, validation):
     run.mkdir()
     print(f"Training {model_config['name']} with seed {seed}", flush=True)
-    tf.keras.backend.clear_session()
-    tf.keras.utils.set_random_seed(seed)
+    keras.backend.clear_session()
+    keras.utils.set_random_seed(seed)
     started = perf_counter()
     with cpu_scope():
         model = build_model(model_config)
@@ -174,6 +175,7 @@ def _run_parent(
     if output_dir is not None:
         root = Path(os.path.abspath(output_dir.expanduser()))
     if run_dir is None:
+        assert run_id is not None
         return root / model_name / validate_run_id(run_id)
 
     path = run_dir.expanduser()

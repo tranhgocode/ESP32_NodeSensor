@@ -1,6 +1,6 @@
 """Build SE-LSTM from YAML, with a channel attention block between layers."""
 
-from tensorflow import keras
+import keras
 
 LAYER_TYPES = {
     "LSTM": keras.layers.LSTM,

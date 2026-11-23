@@ -1,6 +1,6 @@
 """Build Conv1D-GRU with residual depthwise blocks declared in YAML."""
 
-from tensorflow import keras
+import keras
 
 LAYER_TYPES = {
     "Conv1D": keras.layers.Conv1D,

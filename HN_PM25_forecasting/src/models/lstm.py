@@ -1,6 +1,6 @@
 """Build LSTM using the layers declared in its YAML config."""
 
-from tensorflow import keras
+import keras
 
 LAYER_TYPES = {
     "LSTM": keras.layers.LSTM,

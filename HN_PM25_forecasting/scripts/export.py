@@ -164,7 +164,7 @@ def _convert_saved_model(tf, directory: str, calibration: np.ndarray | None) -> 
 def _convert_model(
     tf, model, saved_model_dir: Path, calibration: np.ndarray | None
 ) -> bytes:
-    from tensorflow.lite.python.convert import ConverterError
+    from tensorflow.lite.python.convert_phase import ConverterError
     from tensorflow.python.framework.convert_to_constants import (
         convert_variables_to_constants_v2,
     )
@@ -189,14 +189,26 @@ def _require_static_tensor_shapes(flatbuffer: bytes) -> None:
     from tensorflow.lite.python import schema_py_generated as schema
 
     model = schema.Model.GetRootAs(flatbuffer, 0)
-    for subgraph_index in range(model.SubgraphsLength()):
+    for subgraph_index in range(int(model.SubgraphsLength())):
         subgraph = model.Subgraphs(subgraph_index)
-        for tensor_index in range(subgraph.TensorsLength()):
+        if subgraph is None:
+            raise ValueError(f"Missing TFLite subgraph {subgraph_index}")
+        for tensor_index in range(int(subgraph.TensorsLength())):
             tensor = subgraph.Tensors(tensor_index)
-            signature = (tensor.ShapeSignature(i) for i in range(tensor.ShapeSignatureLength()))
+            if tensor is None:
+                raise ValueError(
+                    f"Missing TFLite tensor {tensor_index} in subgraph {subgraph_index}"
+                )
+            signature = (
+                tensor.ShapeSignature(i)
+                for i in range(int(tensor.ShapeSignatureLength()))
+            )
             if any(dimension < 0 for dimension in signature):
-                name = tensor.Name().decode()
-                raise ValueError(f"Dynamic tensor in TFLite Micro model: {name}")
+                name = tensor.Name()
+                label = f"subgraph {subgraph_index}, tensor {tensor_index}"
+                if name is not None:
+                    label = name.decode(errors="replace")
+                raise ValueError(f"Dynamic tensor in TFLite Micro model: {label}")
 
 
 def _require_integer_tensors(flatbuffer: bytes) -> None:
@@ -445,6 +457,7 @@ def export_checkpoint(
     if quantization == "int8":
         calibration = _calibration_windows(source.processed_dir)
 
+    import keras
     import tensorflow as tf
 
     output = output.resolve()
@@ -453,7 +466,7 @@ def export_checkpoint(
     staging.mkdir()
     try:
         with tf.device("/CPU:0"):
-            model = tf.keras.models.load_model(source.checkpoint, compile=False)
+            model = keras.models.load_model(source.checkpoint, compile=False)
             flatbuffer = _convert_model(tf, model, staging / "saved_model", calibration)
             info = _model_info(tf, model, flatbuffer, source, quantization)
         _publish_export(staging, output, flatbuffer, info, source)

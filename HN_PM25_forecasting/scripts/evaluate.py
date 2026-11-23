@@ -81,10 +81,11 @@ def _predict_split(checkpoint, processed, split, config) -> SplitForecast:
     scalers = load_scalers(processed / "scalers.json")
     windows = _restore_windows(config, processed, split, data, scalers)
 
+    import keras
     import tensorflow as tf
 
     with tf.device("/CPU:0"):
-        model = tf.keras.models.load_model(checkpoint, compile=False)
+        model = keras.models.load_model(checkpoint, compile=False)
         scaled = predict_batches(model, data.X)
     if scaled.shape != data.y.shape:
         raise ValueError(

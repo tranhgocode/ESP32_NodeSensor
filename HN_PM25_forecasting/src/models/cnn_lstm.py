@@ -1,6 +1,6 @@
 """Build CNN-LSTM using the layers declared in its YAML config."""
 
-from tensorflow import keras
+import keras
 
 LAYER_TYPES = {
     "Conv1D": keras.layers.Conv1D,
