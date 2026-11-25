@@ -115,6 +115,25 @@ bool predict(const pm25_window_t &window, uint16_t out[NODE_PM25_FORECAST_COUNT]
     }
     return true;
 }
+
+/** Quy đổi mốc đo dự kiến thành chỉ số trên lưới thời gian của bộ dự báo. */
+bool record_sample(const node_forecast_sample_t &sample)
+{
+    const int64_t interval_us = static_cast<int64_t>(sample.measurement_interval_ms) * US_PER_MS;
+    if (interval_us == 0 || sample.due_since_init_us <= 0 ||
+        sample.due_since_init_us % interval_us != 0)
+    {
+        return false;
+    }
+
+    const float values[PM25_HISTORY_FEATURES] = {
+        sample.pm25_ug_m3 == NODE_PM25_UNAVAILABLE ? NAN : static_cast<float>(sample.pm25_ug_m3),
+        sample.temp_hum_valid ? sample.temp_hum.temperature_x10 / SENSOR_FIXED_POINT_SCALE : NAN,
+        sample.temp_hum_valid ? sample.temp_hum.humidity_x10 / SENSOR_FIXED_POINT_SCALE : NAN,
+    };
+    const auto slot = static_cast<uint64_t>(sample.due_since_init_us / interval_us);
+    return pm25_history_record(&history, slot, values);
+}
 }
 
 void pm25_forecast_init(void)
@@ -153,7 +172,7 @@ void pm25_forecast_init(void)
     input_data = input->data.f;
     output_data = output->data.f;
     interpreter = &runtime;
-    ESP_LOGI(TAG, "Model ready, tensor arena used=%u bytes, history=%u valid samples",
+    ESP_LOGI(TAG, "Model ready, tensor arena used=%u bytes, history=%u measurement slots",
              (unsigned)runtime.arena_used_bytes(),
              PM25_HISTORY_ROWS);
 }
@@ -166,13 +185,7 @@ bool pm25_forecast_sample(const node_forecast_sample_t *sample,
         return false;
     }
 
-    const float values[PM25_HISTORY_FEATURES] = {
-        static_cast<float>(sample->pm25_ug_m3),
-        sample->temp_hum.temperature_x10 / SENSOR_FIXED_POINT_SCALE,
-        sample->temp_hum.humidity_x10 / SENSOR_FIXED_POINT_SCALE,
-    };
-    const bool valid = sample->temp_hum_valid && sample->pm25_ug_m3 != NODE_PM25_UNAVAILABLE;
-    if (!pm25_history_record(&history, values, valid))
+    if (!record_sample(*sample))
     {
         return false;
     }

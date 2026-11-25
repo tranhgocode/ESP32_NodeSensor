@@ -11,7 +11,8 @@ extern "C" {
 void pm25_forecast_init(void);
 
 /**
- * Chạy suy luận khi đủ 24 lần đo có cả PM2.5, nhiệt độ và độ ẩm hợp lệ.
+ * Thử suy luận trên 24 mốc đo, bắt đầu ở mốc 24 rồi trượt mỗi 4 mốc.
+ * Nội suy từng đặc trưng khi có đủ hai số đo bao quanh khoảng thiếu tối đa 3 mốc.
  * @param sample Mẫu theo mốc đo. Phải khác NULL.
  * @param out Mảng đích có chỗ cho bốn giá trị PM2.5 theo µg/m³,
  *            theo thứ tự bốn bước đầu ra của mô hình.
