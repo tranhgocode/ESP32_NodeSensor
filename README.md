@@ -1,4 +1,4 @@
-# ESP32 LoRa Sensor Node
+# PM2.5 Monitoring and Edge AI Forecasting
 
 ## Overview
 
@@ -33,12 +33,12 @@ ERROR  | 0x04 | Src | Dest | ID |  1  | Error code   | Seq   | CRC |
 
 The blank payload cells show where `Seq` immediately follows `Len`.
 
-| Packet | Total size | Purpose |
-| --- | --- | --- |
-| `POLL` | 9 bytes | Polling request recognized by the frame codec. Measurements follow the node's own schedule. |
-| `DATA` | 15, 17, or 25 bytes | The node sends sensor readings and includes forecasts when available. |
-| `ACK` | 9 bytes | The gateway swaps the source and destination and echoes the `ID` and `Seq` from the received `DATA` or `ERROR`. The node must validate the ACK before one second has elapsed from the end of transmission. |
-| `ERROR` | 10 bytes | The node sends one error code when it cannot produce a valid `DATA` frame. |
+| Packet  | Total size          | Purpose                                                                                                                                                                                                    |
+| ------- | ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POLL`  | 9 bytes             | Polling request recognized by the frame codec. Measurements follow the node's own schedule.                                                                                                                |
+| `DATA`  | 15, 17, or 25 bytes | The node sends sensor readings and includes forecasts when available.                                                                                                                                      |
+| `ACK`   | 9 bytes             | The gateway swaps the source and destination and echoes the `ID` and `Seq` from the received `DATA` or `ERROR`. The node must validate the ACK before one second has elapsed from the end of transmission. |
+| `ERROR` | 10 bytes            | The node sends one error code when it cannot produce a valid `DATA` frame.                                                                                                                                 |
 
 ### DATA payloads
 
@@ -50,24 +50,24 @@ Len =  8 | Temp | RH | Battery | PM2.5 |
 Len = 16 | Temp | RH | Battery | PM2.5 | FC+1 | FC+2 | FC+3 | FC+4 |
 ```
 
-| Field | Encoding |
-| --- | --- |
-| `Temp` | Signed 16-bit integer, temperature in °C multiplied by 10 |
-| `RH` | Unsigned 16-bit integer, relative humidity in percent multiplied by 10 |
-| `Battery` | Unsigned 16-bit integer, battery voltage in mV |
-| `PM2.5` | Unsigned 16-bit integer, measured PM2.5 concentration in µg/m³ |
+| Field            | Encoding                                                                              |
+| ---------------- | ------------------------------------------------------------------------------------- |
+| `Temp`           | Signed 16-bit integer, temperature in °C multiplied by 10                             |
+| `RH`             | Unsigned 16-bit integer, relative humidity in percent multiplied by 10                |
+| `Battery`        | Unsigned 16-bit integer, battery voltage in mV                                        |
+| `PM2.5`          | Unsigned 16-bit integer, measured PM2.5 concentration in µg/m³                        |
 | `FC+1` to `FC+4` | Four unsigned 16-bit integers, predicted PM2.5 in µg/m³ for the next four model steps |
 
 The node uses the 6-byte layout when HM3301 is disabled. With HM3301 enabled, it uses the 8-byte layout and extends it to 16 bytes when a forecast is available. A battery or measured PM2.5 value of `0xFFFF` indicates a missing reading. A PM2.5 value of zero is valid.
 
 ### ERROR payload
 
-| Code | Meaning |
-| --- | --- |
+| Code   | Meaning                                               |
+| ------ | ----------------------------------------------------- |
 | `0x01` | Temperature and humidity sensor initialization failed |
-| `0x02` | Temperature and humidity sensor read failed |
-| `0x03` | Temperature or humidity reading was out of range |
-| `0x04` | DATA encoding failed |
+| `0x02` | Temperature and humidity sensor read failed           |
+| `0x03` | Temperature or humidity reading was out of range      |
+| `0x04` | DATA encoding failed                                  |
 
 See the [frame codec](firmware/src/protocol/node_packet.c), [payload encoder](firmware/src/protocol/node_payload.c), and [ACK validation](firmware/src/app/node_state.c).
 
